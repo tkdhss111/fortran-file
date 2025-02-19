@@ -1,0 +1,92 @@
+Start testing: Feb 19 09:59 JST
+----------------------------------------------------------
+1/1 Testing: unit_test
+1/1 Test: unit_test
+Command: "/home/hss/0_tkd/1_hss/2_tools/fortran-file/build/test/unit_test"
+Directory: /home/hss/0_tkd/1_hss/2_tools/fortran-file/test
+"unit_test" start time: Feb 19 09:59 JST
+Output:
+----------------------------------------------------------
+ ==========================================
+ Test 1: Utility Functions
+ ==========================================
+ dirname : ./dir_test/dir_a/
+ filename: file_a1.txt
+ basename: file_a1
+ extname : .txt
+ ==========================================
+ Test 2: Initialization
+ ==========================================
+ ------------------------------------------
+ Test 2-1: Basic Initialization
+ ------------------------------------------
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a1.txt
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a2.csv
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a3.html
+ ------------------------------------------
+ Test 2-2: Initialization via File Search
+ ------------------------------------------
+ -------------------------------------------------------------------------------
+Search Directory: ./dir_test/
+Current Directory: /home/hss/0_tkd/1_hss/2_tools/fortran-file/build
+ Command: find ./dir_test/ -type f \(  -iname "*" -and ! -iname "" \)| sort -n | tee /tmp/filelist1
+./dir_test/dir_a/file_a1.txt
+./dir_test/dir_a/file_a2.csv
+./dir_test/dir_a/file_a3.html
+ Number of files/dirs found:            3
+ -------------------------------------------------------------------------------
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a1.txt
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a2.csv
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a3.html
+ -------------------------------------------------------------------------------
+Search Directory: ./dir_test/
+Current Directory: /home/hss/0_tkd/1_hss/2_tools/fortran-file/build
+ Number of patterns           1
+ Command: find ./dir_test/ -type f \( -iname "*.txt" -or -iname "*.html" -and ! -iname "" \)| sort -n | tee /tmp/filelist1
+./dir_test/dir_a/file_a1.txt
+./dir_test/dir_a/file_a3.html
+ Number of files/dirs found:            2
+ -------------------------------------------------------------------------------
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a1.txt
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a3.html
+ -------------------------------------------------------------------------------
+Search Directory: ./dir_test/
+Current Directory: /home/hss/0_tkd/1_hss/2_tools/fortran-file/build
+ Number of ignores           1
+ Command: find ./dir_test/ -type f \(  -iname "*" -and ! -iname "*.txt" -and ! -iname "*.html" \)| sort -n | tee /tmp/filelist1
+./dir_test/dir_a/file_a2.csv
+ Number of files/dirs found:            1
+ -------------------------------------------------------------------------------
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a2.csv
+ -------------------------------------------------------------------------------
+Search Directory: ./dir_test/
+Current Directory: /home/hss/0_tkd/1_hss/2_tools/fortran-file/build
+ Command: find ./dir_test/ -type d \(  -iname "*" -and ! -iname "" \)| sort -n | tee /tmp/filelist1
+./dir_test/
+./dir_test/dir_a
+./dir_test/dir_b
+ Number of files/dirs found:            3
+    Dir #1: ./dir_test/
+    Dir #2: ./dir_test/dir_a/
+    Dir #3: ./dir_test/dir_b/
+ -------------------------------------------------------------------------------
+File/Directory exists: T, Size: 4.0KiB, Path: ./dir_test/
+File/Directory exists: T, Size: 4.0KiB, Path: ./dir_test/dir_a/
+File/Directory exists: T, Size: 4.0KiB, Path: ./dir_test/dir_b/
+ ==========================================
+ Test 3: System Operation Functions
+ ==========================================
+ ------------------------------------------
+ Test 3-1: touch
+ ------------------------------------------
+ Command: touch ./dir_test/dir_a/file_a1.txt
+File/Directory exists: T, Size: 0B, Path: ./dir_test/dir_a/file_a1.txt
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"unit_test" end time: Feb 19 09:59 JST
+"unit_test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Feb 19 09:59 JST

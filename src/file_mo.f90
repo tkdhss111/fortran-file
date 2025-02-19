@@ -215,7 +215,6 @@ contains
     if ( present( pattern ) ) then
       pattern_ = trim(pattern)
     else
-      !pattern_ = '*.*'
       pattern_ = '*'
     end if
 

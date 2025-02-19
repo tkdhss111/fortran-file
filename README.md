@@ -179,10 +179,10 @@ Only files within the directory are recursively removed.
 
 Use the following functions:
 
-- dirname for directory name
-- filename for file name with extension
-- basename for file name without extension
-- extname for extension name
+- **dirname** for directory name
+- **filename** for file name with extension
+- **basename** for file name without extension
+- **extname** for extension name
 
 ```
 dirname  ( './dir_test/dir_a/file_a1.txt' ) ! ./dir_test/dir_a/

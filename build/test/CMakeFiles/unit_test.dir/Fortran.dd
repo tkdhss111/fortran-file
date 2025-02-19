@@ -1,0 +1,6 @@
+ninja_dyndep_version = 1.0
+build test/CMakeFiles/unit_test.dir/unit_test.f90.o: dyndep | test/file_mo.mod
+
+build test/CMakeFiles/unit_test.dir/__/src/file_mo.f90.o | test/file_mo.mod: dyndep
+  restat = 1
+

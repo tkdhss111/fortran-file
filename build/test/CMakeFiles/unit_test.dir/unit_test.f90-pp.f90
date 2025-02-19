@@ -1,3 +1,7 @@
+# 1 "/home/hss/0_tkd/1_hss/2_tools/fortran-file/test/unit_test.f90"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "/home/hss/0_tkd/1_hss/2_tools/fortran-file/test/unit_test.f90"
 program unit_test_file_mo
 
   use file_mo
