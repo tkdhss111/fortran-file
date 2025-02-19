@@ -4,9 +4,8 @@ module file_mo
 
   private
   public :: file_ty
-  public :: find_files
   public :: dirname, filename, basename, extname
-  public :: touch, rm, cp, mv
+  public :: find, touch, rm, cp, mv
   public :: mkdir, rmdir, cldir
 
   type file_ty
@@ -77,7 +76,7 @@ contains
     class(file_ty), intent(inout) :: this
     type(file_ty), allocatable    :: files(:)
     integer i
-    files = find_files ( dir =  this%dir )
+    files = find ( dir =  this%dir )
     do i = 1, size(files)
       call rm ( files(i) ) 
     end do
@@ -172,7 +171,7 @@ contains
     extname = path(p_comma:len_trim(path))
   end function
 
-  function find_files ( dir, pattern, ignore, maxdepth, fullpath, type, image ) result ( files )
+  function find ( dir, pattern, ignore, maxdepth, fullpath, type, image ) result ( files )
     ! Note. Use "image" option for thread safe search (e.g., image = this_image())
     type(file_ty), allocatable         :: files(:)
     character(*), intent(in), optional :: dir
@@ -355,7 +354,7 @@ contains
     end if
 
     if ( exitstat /= 0 ) then
-      stop '*** Error: Function "find_files" is not thread safe. Consider using "image" option.'
+      stop '*** Error: Function "find" is not thread safe. Consider using "image" option.'
     end if
 
     print *, repeat( '-', 79 )

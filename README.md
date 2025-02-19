@@ -5,7 +5,7 @@ Fortran Functions for File Manipulation
 - Wrapper functions of system operation commands
 
 - Manipulate file or directory with the commands:\
-touch, cp, mv, rm, mkdir, rmdir, cldir, print and find_files
+touch, cp, mv, rm, mkdir, rmdir, cldir, print and find
 
 ## file_ty
 
@@ -59,10 +59,10 @@ call file2%init ( path = './dir_a/file_a2.txt', content = 'Weather Data' )
 ```
 type(file_ty), allocatable :: files(:)
 
-files = find_files ( dir = './dir_a' )
+files = find ( dir = './dir_a' )
 ```
 
-- **find\_files** is a wrapper function of the system operation command "find".
+- **find** is a wrapper function of the system operation command "find".
 - Available options are: pattern, ignore, maxdepth, fullpath, type, and image.
 - Use notation "|" for "OR" operator in pattern/ignore option (e.g.,  pattern = '*.txt | *.csv').
 - Use image option for this_image() in coarray multi-threaded environment to avoid filelist file crash.
@@ -198,4 +198,4 @@ dir_test\
 │   ├── file_a1.txt\
 │   ├── file_a2.csv\
 │   └── file_a3.html\
-└── dir_b (empty)
+└── dir_b (empty; not on github)

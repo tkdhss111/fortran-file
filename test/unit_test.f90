@@ -39,28 +39,28 @@ program unit_test_file_mo
   print *, 'Test 2-2: Initialization via File Search'
   print *, '------------------------------------------'
 
-  files = find_files ( dir = './dir_test' )
+  files = find ( dir = './dir_test' )
 
   do i = 1, size(files)
     call files(i)%print
   end do
 
   ! With pattern option (extract text file or HTML file)
-  files = find_files ( dir = './dir_test', pattern = '*.txt|*.html' )
+  files = find ( dir = './dir_test', pattern = '*.txt|*.html' )
 
   do i = 1, size(files)
     call files(i)%print
   end do
 
   ! With ignore option (ignore text file or HTML file)
-  files = find_files ( dir = './dir_test', ignore = '*.txt|*.html' )
+  files = find ( dir = './dir_test', ignore = '*.txt|*.html' )
 
   do i = 1, size(files)
     call files(i)%print
   end do
 
   ! With type option (find directory only)
-  dirs = find_files ( dir = './dir_test/', type = 'd' )
+  dirs = find ( dir = './dir_test/', type = 'd' )
 
   do i = 1, size(dirs)
     call dirs(i)%print
