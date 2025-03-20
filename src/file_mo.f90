@@ -10,15 +10,15 @@ module file_mo
 
   type file_ty
 
-    character(255) :: path     = ''
-    character(255) :: dir      = ''
-    character(255) :: content  = ''
-    character(50)  :: name     = ''
-    character(50)  :: basename = ''
-    character(10)  :: ext      = ''
-    character(1)   :: type     = 'f'
-    integer(8)     :: size     = 0
-    logical        :: exist    = .false.
+    character(:), allocatable :: path
+    character(:), allocatable :: dir
+    character(:), allocatable :: name
+    character(:), allocatable :: basename
+    character(:), allocatable :: ext
+    character(:), allocatable :: content
+    character(1) :: type  = ''
+    integer(8)   :: size  = 0
+    logical      :: exist = .false.
 
   contains
 
@@ -189,7 +189,7 @@ contains
     character(1)                       :: type_
     character(1000)                    :: list_fnms = 'filelist', fno
     character(1000)                    :: command, cmdmsg, filelist
-    character(1000)                    :: pwd 
+    character(1000)                    :: path, pwd 
     character(30), allocatable         :: patterns(:), ignores(:)
     integer                            :: cmdstat, exitstat 
     integer                            :: image_
@@ -334,7 +334,8 @@ contains
 
     allocate ( files(nrows) )
     do i = 1, nrows
-      read ( u, '(a)' ) files(i)%path
+      read ( u, '(a)' ) path
+      files(i)%path = trim(path)
       if ( type == 'f' ) then
         print '(a, i0, a, a)', '    File #', i, ': ', trim(files(i)%path)
       end if

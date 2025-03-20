@@ -9,31 +9,32 @@ touch, cp, mv, rm, mkdir, rmdir, cldir, print and find
 
 ## file_ty
 
-```
-  type file_ty
+```{.fortran}
+type file_ty
 
-    character(255) :: path     = ''
-    character(255) :: dir      = ''
-    character(255) :: content  = ''
-    character(50)  :: name     = ''
-    character(50)  :: basename = ''
-    character(10)  :: ext      = ''
-    integer(8)     :: size     = 0
-    logical        :: exist    = .false.
+  character(:), allocatable :: path
+  character(:), allocatable :: dir
+  character(:), allocatable :: name
+  character(:), allocatable :: basename
+  character(:), allocatable :: ext
+  character(:), allocatable :: content
+  character(1) :: type  = ''
+  integer(8)   :: size  = 0
+  logical      :: exist = .false.
 
-  contains
+contains
 
-    procedure :: init  => init_file
-    procedure :: print => print_file
-    procedure :: touch
-    procedure :: rm
-    procedure :: cp
-    procedure :: mv
-    procedure :: mkdir
-    procedure :: rmdir
-    procedure :: cldir
+  procedure :: init  => init_file
+  procedure :: print => print_file
+  procedure :: touch
+  procedure :: rm
+  procedure :: cp
+  procedure :: mv
+  procedure :: mkdir
+  procedure :: rmdir
+  procedure :: cldir
 
-  end type
+end type
 ```
 
 ## Initialization
