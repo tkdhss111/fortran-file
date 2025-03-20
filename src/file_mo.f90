@@ -299,12 +299,12 @@ contains
       command = 'find '//trim(dir_)//trim(maxdepth_)//&
                 ' -type '//trim(type_)//&
                 ' \( '//trim(pattern_)//trim(ignore_)//' \)'//&
-                '| sort -n | tee '//trim(filelist)
+                '| sort -n > '//trim(filelist)
     else
       command = 'find '//trim(dir_)//trim(maxdepth_)//&
                 ' -type '//trim(type_)//&
                 ' \( '//trim(pattern_)//trim(ignore_)//' \)'//&
-                '| sort -n | xargs -n 1 basename | tee '//trim(filelist)
+                '| sort -n | xargs -n 1 basename > '//trim(filelist)
     end if
 
     if ( index( command, '~' ) > 0 ) then
