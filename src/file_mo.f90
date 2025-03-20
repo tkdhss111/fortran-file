@@ -16,6 +16,7 @@ module file_mo
     character(50)  :: name     = ''
     character(50)  :: basename = ''
     character(10)  :: ext      = ''
+    character(1)   :: type     = 'f'
     integer(8)     :: size     = 0
     logical        :: exist    = .false.
 
@@ -168,7 +169,11 @@ contains
     integer                   :: p_comma
     character(:), allocatable :: extname
     p_comma = index( path, '.', back = .true. )
-    extname = path(p_comma:len_trim(path))
+    if ( p_comma > 0 ) then
+      extname = path(p_comma:len_trim(path))
+    else
+      extname = ''
+    end if
   end function
 
   function find ( dir, pattern, ignore, maxdepth, fullpath, type, image ) result ( files )
@@ -283,13 +288,13 @@ contains
 
     do
       write ( fno, '(i0)' ) image_
-      !filelist = trim(dir_)//trim(list_fnms)//trim(fno)
-      filelist = '/tmp/'//trim(list_fnms)//trim(fno)
+      filelist = trim(dir_)//trim(list_fnms)//trim(fno)
+      !filelist = '/tmp/'//trim(list_fnms)//trim(fno)
       inquire ( file = filelist, exist = exist )
       if ( .not. exist ) exit
       image_ = image_ + 1
     end do
-    
+
     if ( fullpath_ ) then
       command = 'find '//trim(dir_)//trim(maxdepth_)//&
                 ' -type '//trim(type_)//&

@@ -198,4 +198,4 @@ dir_test\
 │   ├── file_a1.txt\
 │   ├── file_a2.csv\
 │   └── file_a3.html\
-└── dir_b (empty; not on github)
+└── dir_b (empty; not on GitHub)
