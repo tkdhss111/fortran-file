@@ -45,6 +45,13 @@ program unit_test_file_mo
     call files(i)%print
   end do
 
+  ! With path that contains "=" in the path (need to be escaped by "/")
+  files = find ( dir = './dir_test/dir=c' )
+
+  do i = 1, size(files)
+    call files(i)%print
+  end do
+stop
   ! With pattern option (extract text file or HTML file)
   files = find ( dir = './dir_test', pattern = '*.txt|*.html' )
 

@@ -288,20 +288,19 @@ contains
 
     do
       write ( fno, '(i0)' ) image_
-      filelist = trim(dir_)//trim(list_fnms)//trim(fno)
-      !filelist = '/tmp/'//trim(list_fnms)//trim(fno)
+      filelist = trim(list_fnms)//trim(fno)
       inquire ( file = filelist, exist = exist )
       if ( .not. exist ) exit
       image_ = image_ + 1
     end do
 
     if ( fullpath_ ) then
-      command = 'find '//trim(dir_)//trim(maxdepth_)//&
+      command = 'find "'//trim(dir_)//'"'//trim(maxdepth_)//&
                 ' -type '//trim(type_)//&
                 ' \( '//trim(pattern_)//trim(ignore_)//' \)'//&
                 '| sort -n > '//trim(filelist)
     else
-      command = 'find '//trim(dir_)//trim(maxdepth_)//&
+      command = 'find "'//trim(dir_)//'"'//trim(maxdepth_)//&
                 ' -type '//trim(type_)//&
                 ' \( '//trim(pattern_)//trim(ignore_)//' \)'//&
                 '| sort -n | xargs -n 1 basename > '//trim(filelist)
