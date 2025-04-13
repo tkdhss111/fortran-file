@@ -206,7 +206,7 @@ program unit_test_file_mo
   call dir_b%cldir
 
   print *, '------------------------------------------'
-  print *, 'Test 4: Cp remote file by URI'
+  print *, 'Test 4: Copy remote file via curl'
   print *, '------------------------------------------'
 
   call file_remote%init ( path = 'https://stats.dip.jp/css/tkd_crest_sakura.png' )

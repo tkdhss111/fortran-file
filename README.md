@@ -7,20 +7,24 @@ Fortran Functions for File Manipulation
 - Manipulate file or directory with the commands:\
 touch, cp, mv, rm, mkdir, rmdir, cldir, print and find
 
+- Can copy URI file to local via curl
+
 ## file_ty
 
 ```{.fortran}
 type file_ty
 
-  character(:), allocatable :: path
-  character(:), allocatable :: dir
-  character(:), allocatable :: name
-  character(:), allocatable :: basename
-  character(:), allocatable :: ext
-  character(:), allocatable :: content
+  character(:), allocatable :: path     ! Full/relative path to a file
+  character(:), allocatable :: dir      ! Directory name with tailing /
+  character(:), allocatable :: name     ! File name with extention
+  character(:), allocatable :: basename ! File name without extention
+  character(:), allocatable :: ext      ! Extension of a file
+  character(:), allocatable :: content  ! File content
+  character(:), allocatable :: scheme   ! URI scheme {https, http, file}
   character(1) :: type  = ''
   integer(8)   :: size  = 0
   logical      :: exist = .false.
+  logical      :: local = .true.
 
 contains
 

@@ -61,7 +61,7 @@ contains
       call exec ( 'cp '//trim(from%path)//' '//trim(to%path) )
       to%exist = .true.
     else
-      call exec ( 'curl '//trim(from%path)//' --output '//trim(to%path) )
+      call exec ( 'curl --silent --fail-with-body --create-dirs --insecure '//trim(from%path)//' --output '//trim(to%path) )
     end if
   end subroutine
 
@@ -450,7 +450,6 @@ contains
     character(512) :: cmd
     character(256) :: line
     character(256) :: tmpfile
-    character(20)  :: status_str, size_str
     integer j, u, iostat
     if ( present( image ) ) then
       image_ = image
