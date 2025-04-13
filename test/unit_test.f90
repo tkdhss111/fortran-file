@@ -4,7 +4,7 @@ program unit_test_file_mo
 
   implicit none
 
-  type(file_ty) :: file_new, file1, file2, file3
+  type(file_ty) :: file_new, file1, file2, file3, file_remote, file_local
   type(file_ty) :: dir_b, dir_c, dir_d
   type(file_ty) :: file1_cp, file2_cp, file1_mv, file2_mv
   type(file_ty), allocatable :: files(:), dirs(:)
@@ -14,10 +14,11 @@ program unit_test_file_mo
   print *, 'Test 1: Utility Functions'
   print *, '=========================================='
 
-  print *, 'dirname : ', dirname  ( './dir_test/dir_a/file_a1.txt' )
-  print *, 'filename: ', filename ( './dir_test/dir_a/file_a1.txt' )
-  print *, 'basename: ', basename ( './dir_test/dir_a/file_a1.txt' )
-  print *, 'extname : ', extname  ( './dir_test/dir_a/file_a1.txt' )
+  print *, 'dirname    : ', dirname    ( './dir_test/dir_a/file_a1.txt' )
+  print *, 'filename   : ', filename   ( './dir_test/dir_a/file_a1.txt' )
+  print *, 'basename   : ', basename   ( './dir_test/dir_a/file_a1.txt' )
+  print *, 'extname    : ', extname    ( './dir_test/dir_a/file_a1.txt' )
+  print *, 'schemename : ', schemename ( 'https://github.com/tkdhss111/fortran-file/blob/main/test/dir_test/dir_a/file_a1.txt' )
 
   print *, '=========================================='
   print *, 'Test 2: Initialization'
@@ -51,7 +52,7 @@ program unit_test_file_mo
   do i = 1, size(files)
     call files(i)%print
   end do
-stop
+
   ! With pattern option (extract text file or HTML file)
   files = find ( dir = './dir_test', pattern = '*.txt|*.html' )
 
@@ -83,7 +84,7 @@ stop
 
   call touch ( file1 )
   call file1%print
-stop
+
   print *, '------------------------------------------'
   print *, 'Test 3-2: touch (type-bound procedure)'
   print *, '------------------------------------------'
@@ -204,6 +205,17 @@ stop
   call touch ( file1_mv )
   call dir_b%cldir
 
+  print *, '------------------------------------------'
+  print *, 'Test 4: Cp remote file by URI'
+  print *, '------------------------------------------'
 
+  call file_remote%init ( path = 'https://stats.dip.jp/css/tkd_crest_sakura.png' )
+  call file_local%init ( path = './family_crest.png' )
+  call file_remote%print
+  call cp ( from = file_remote, to = file_local )
+  !call mv ( from = file_remote, to = file_local ) ! Error
+  !call rm ( file_remote ) ! Error
+
+  print *, '------------------------------------------'
   call touch ( file1 ) ! for recovery to the initial setup
 end program

@@ -1,0 +1,61 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+10	src/file_mo.f90	/^    10 rewind (u)$/;"	l	function:count_rows	file:
+CMAKE	makefile	/^CMAKE       := cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug$/;"	m
+MKDIR_BUILD	makefile	/^MKDIR_BUILD := mkdir -p build && cd build$/;"	m
+MKFILE	src/makefile	/^MKFILE:=-C .. -f makefile$/;"	m
+MKFILE	test/makefile	/^MKFILE:=-C .. -f makefile$/;"	m
+basename	src/file_mo.f90	/^    character(:), allocatable :: basename /;"	k	type:file_ty
+basename	src/file_mo.f90	/^  pure function basename /;"	f	module:file_mo
+check_uri_file	src/file_mo.f90	/^  subroutine check_uri_file /;"	s	module:file_mo
+cldir	src/file_mo.f90	/^  subroutine cldir /;"	s	module:file_mo
+content	src/file_mo.f90	/^    character(:), allocatable :: content /;"	k	type:file_ty
+count_ors	src/file_mo.f90	/^  pure elemental function count_ors /;"	f	module:file_mo
+count_rows	src/file_mo.f90	/^  function count_rows /;"	f	module:file_mo
+cp	src/file_mo.f90	/^  subroutine cp /;"	s	module:file_mo
+dir	src/file_mo.f90	/^    character(:), allocatable :: dir /;"	k	type:file_ty
+dir_b	test/unit_test.f90	/^  type(file_ty) :: dir_b,/;"	v	program:unit_test_file_mo
+dir_c	test/unit_test.f90	/^  type(file_ty) :: dir_b, dir_c,/;"	v	program:unit_test_file_mo
+dir_d	test/unit_test.f90	/^  type(file_ty) :: dir_b, dir_c, dir_d$/;"	v	program:unit_test_file_mo
+dirname	src/file_mo.f90	/^  pure function dirname /;"	f	module:file_mo
+dirs	test/unit_test.f90	/^  type(file_ty), allocatable :: files(:), dirs(/;"	v	program:unit_test_file_mo
+exec	src/file_mo.f90	/^  subroutine exec /;"	s	module:file_mo
+exist	src/file_mo.f90	/^    logical      :: exist /;"	k	type:file_ty
+ext	src/file_mo.f90	/^    character(:), allocatable :: ext /;"	k	type:file_ty
+extname	src/file_mo.f90	/^  pure function extname /;"	f	module:file_mo
+file1	test/unit_test.f90	/^  type(file_ty) :: file_new, file1,/;"	v	program:unit_test_file_mo
+file1_cp	test/unit_test.f90	/^  type(file_ty) :: file1_cp,/;"	v	program:unit_test_file_mo
+file1_mv	test/unit_test.f90	/^  type(file_ty) :: file1_cp, file2_cp, file1_mv,/;"	v	program:unit_test_file_mo
+file2	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2,/;"	v	program:unit_test_file_mo
+file2_cp	test/unit_test.f90	/^  type(file_ty) :: file1_cp, file2_cp,/;"	v	program:unit_test_file_mo
+file2_mv	test/unit_test.f90	/^  type(file_ty) :: file1_cp, file2_cp, file1_mv, file2_mv$/;"	v	program:unit_test_file_mo
+file3	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2, file3,/;"	v	program:unit_test_file_mo
+file_local	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2, file3, file_remote, file_local$/;"	v	program:unit_test_file_mo
+file_mo	src/file_mo.f90	/^module file_mo$/;"	m
+file_new	test/unit_test.f90	/^  type(file_ty) :: file_new,/;"	v	program:unit_test_file_mo
+file_remote	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2, file3, file_remote,/;"	v	program:unit_test_file_mo
+file_ty	src/file_mo.f90	/^  type file_ty$/;"	t	module:file_mo
+filename	src/file_mo.f90	/^  pure function filename /;"	f	module:file_mo
+files	test/unit_test.f90	/^  type(file_ty), allocatable :: files(/;"	v	program:unit_test_file_mo
+find	src/file_mo.f90	/^  function find /;"	f	module:file_mo
+i	test/unit_test.f90	/^  in/;"	v	program:unit_test_file_mo
+init_file	src/file_mo.f90	/^  subroutine init_file /;"	s	module:file_mo
+local	src/file_mo.f90	/^    logical      :: local /;"	k	type:file_ty
+mkdir	src/file_mo.f90	/^  subroutine mkdir /;"	s	module:file_mo
+mv	src/file_mo.f90	/^  subroutine mv /;"	s	module:file_mo
+name	src/file_mo.f90	/^    character(:), allocatable :: name /;"	k	type:file_ty
+path	src/file_mo.f90	/^    character(:), allocatable :: path /;"	k	type:file_ty
+print_file	src/file_mo.f90	/^  subroutine print_file /;"	s	module:file_mo
+rm	src/file_mo.f90	/^  subroutine rm /;"	s	module:file_mo
+rmdir	src/file_mo.f90	/^  subroutine rmdir /;"	s	module:file_mo
+scheme	src/file_mo.f90	/^    character(:), allocatable :: scheme /;"	k	type:file_ty
+schemename	src/file_mo.f90	/^  pure function schemename /;"	f	module:file_mo
+size	src/file_mo.f90	/^    integer(8)   :: size /;"	k	type:file_ty
+touch	src/file_mo.f90	/^  subroutine touch /;"	s	module:file_mo
+type	src/file_mo.f90	/^    character(1) :: type /;"	k	type:file_ty
+unit_test_file_mo	test/unit_test.f90	/^program unit_test_file_mo$/;"	p
+uri2path	src/file_mo.f90	/^  function uri2path /;"	f	module:file_mo

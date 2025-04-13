@@ -1,0 +1,11 @@
+HTTP/1.1 200 OK
+Server: nginx/1.18.0 (Ubuntu)
+Date: Sun, 13 Apr 2025 06:02:04 GMT
+Content-Type: image/png
+Content-Length: 17826
+Last-Modified: Mon, 17 Mar 2025 06:59:34 GMT
+Connection: keep-alive
+ETag: "67d7c856-45a2"
+Cache-Control: no-store
+Accept-Ranges: bytes
+

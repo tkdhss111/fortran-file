@@ -4,21 +4,23 @@ module file_mo
 
   private
   public :: file_ty
-  public :: dirname, filename, basename, extname
+  public :: dirname, filename, basename, extname, schemename
   public :: find, touch, rm, cp, mv
   public :: mkdir, rmdir, cldir
 
   type file_ty
 
-    character(:), allocatable :: path
-    character(:), allocatable :: dir
-    character(:), allocatable :: name
-    character(:), allocatable :: basename
-    character(:), allocatable :: ext
-    character(:), allocatable :: content
+    character(:), allocatable :: path     ! Full/relative path to a file
+    character(:), allocatable :: dir      ! Directory name with tailing /
+    character(:), allocatable :: name     ! File name with extention
+    character(:), allocatable :: basename ! File name without extention
+    character(:), allocatable :: ext      ! Extension of a file
+    character(:), allocatable :: content  ! File content
+    character(:), allocatable :: scheme   ! URI scheme {https, http, file}
     character(1) :: type  = ''
     integer(8)   :: size  = 0
     logical      :: exist = .false.
+    logical      :: local = .true.
 
   contains
 
@@ -44,39 +46,62 @@ contains
 
   subroutine rm ( this )
     class(file_ty), intent(inout) :: this
-    call exec ( 'rm '//trim(this%path) )
-    this%exist = .false.
+    if ( this%local ) then
+      call exec ( 'rm '//trim(this%path) )
+      this%exist = .false.
+    else
+      stop '*** Error: Can not remove file in remote'
+    end if
   end subroutine
 
   subroutine cp ( from, to )
     class(file_ty), intent(inout) :: from
     type(file_ty),  intent(inout) :: to
-    call exec ( 'cp '//trim(from%path)//' '//trim(to%path) )
-    to%exist = .true.
+    if ( from%local ) then
+      call exec ( 'cp '//trim(from%path)//' '//trim(to%path) )
+      to%exist = .true.
+    else
+      call exec ( 'curl '//trim(from%path)//' --output '//trim(to%path) )
+    end if
   end subroutine
 
   subroutine mv ( from, to )
     class(file_ty), intent(inout) :: from
     type(file_ty),  intent(inout) :: to
-    call exec ( 'mv '//trim(from%path)//' '//trim(to%path) )
-    from%exist = .false.
-    to%exist   = .true.
+    if ( from%local ) then
+      call exec ( 'mv '//trim(from%path)//' '//trim(to%path) )
+      from%exist = .false.
+      to%exist   = .true.
+    else
+      stop '*** Error: Can not move file in remote'
+    end if
   end subroutine
 
   subroutine mkdir ( this )
     class(file_ty), intent(inout) :: this
-    call exec ( 'mkdir -p '//trim(this%dir) )
+    if ( this%local ) then
+      call exec ( 'mkdir -p '//trim(this%dir) )
+    else
+      stop '*** Error: Can not make directory in remote'
+    end if
   end subroutine
 
   subroutine rmdir ( this )
     class(file_ty), intent(inout) :: this
-    call exec ( 'rmdir '//trim(this%dir) )
+    if ( this%local ) then
+      call exec ( 'rmdir '//trim(this%dir) )
+    else
+      stop '*** Error: Can not remove directory in remote'
+    end if
   end subroutine
 
   subroutine cldir ( this )
     class(file_ty), intent(inout) :: this
     type(file_ty), allocatable    :: files(:)
     integer i
+    if ( .not. this%local ) then
+      stop '*** Error: Can not clear files in remote'
+    end if
     files = find ( dir =  this%dir )
     do i = 1, size(files)
       call rm ( files(i) ) 
@@ -117,11 +142,23 @@ contains
       this%content = 'NA'
     end if
     this%path     = trim(path)
-    this%dir      = dirname  ( path )
-    this%basename = basename ( path )
-    this%name     = filename ( path )
-    this%ext      = extname  ( path )
-    inquire ( file = this%path, exist = this%exist, size = this%size )
+    this%dir      = dirname    ( path )
+    this%basename = basename   ( path )
+    this%name     = filename   ( path )
+    this%ext      = extname    ( path )
+    this%scheme   = schemename ( path )
+    if ( this%scheme == 'NA' ) then
+      inquire ( file = this%path, exist = this%exist, size = this%size )
+      this%local = .true.
+    else
+      call check_uri_file ( this )
+      if ( this%scheme == 'file' ) then
+        this%local = .true.
+        this%path = uri2path ( this%path )
+      else
+        this%local = .false.
+      end if
+    end if
   end subroutine
 
   subroutine print_file ( this )
@@ -173,6 +210,18 @@ contains
       extname = path(p_comma:len_trim(path))
     else
       extname = ''
+    end if
+  end function
+
+  pure function schemename ( path )
+    character(*), intent(in)  :: path
+    integer                   :: p_sep
+    character(:), allocatable :: schemename
+    p_sep = index( path, '://' )
+    if (p_sep > 1) then
+      schemename = path(1:p_sep-1)
+    else
+      schemename = 'NA'
     end if
   end function
 
@@ -243,7 +292,7 @@ contains
     if ( present( image ) ) then
       image_ = image
     else
-      image_ = 1 
+      image_ = 1
     end if
 
     !
@@ -393,5 +442,66 @@ contains
     end do
     10 rewind (u)
   end function
+
+  subroutine check_uri_file ( this, image )
+    class(file_ty),    intent(inout) :: this
+    integer, optional, intent(in)    :: image
+    integer :: image_
+    character(512) :: cmd
+    character(256) :: line
+    character(256) :: tmpfile
+    character(20)  :: status_str, size_str
+    integer j, u, iostat
+    if ( present( image ) ) then
+      image_ = image
+    else
+      image_ = 1
+    end if
+    write( tmpfile, '(a, i0)' ) './tmp', image_
+    write ( cmd, '(a, i0)' ) 'curl -sI '//trim(this%path)//' > '//trim(tmpfile)
+    call exec ( cmd )
+    open ( newunit = u, file = tmpfile, status = 'old' )
+    do
+      read ( u, '(a)', iostat = iostat ) line
+      if ( iostat /=0 ) exit
+      if ( index ( line, 'HTTP/' ) > 0 .and. index ( line, '200' ) > 0 ) then
+        this%exist = .true.
+        this%local = .false.
+      end if
+      j = index ( line, 'Content-Length:' )
+      if ( j > 0 ) then
+        read ( line(16:len_trim(line)), * ) this%size
+        exit
+      end if
+    end do
+    close ( u )
+  end subroutine check_uri_file
+
+  function uri2path ( uri ) result ( path )
+    character(*), intent(in) :: uri
+    character(len(uri))      :: path
+    integer :: i, j
+    path = ''
+    j = 1
+    ! Remove 'file://' prefix
+    if (index(uri, 'file://') == 1) then
+      do i = 8, len_trim(uri)
+        ! On Windows, change '/' to '\'
+#ifdef _WIN32
+        if (uri(i:i) == '/') then
+          path(j:j) = '\'
+        else
+          path(j:j) = uri(i:i)
+        end if
+#else
+        path(j:j) = uri(i:i)
+#endif
+        j = j + 1
+      end do
+    else
+      ! If no prefix, just copy
+      path = uri
+    end if
+  end function uri2path
 
 end module
