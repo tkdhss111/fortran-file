@@ -36,6 +36,10 @@ module file_mo
 
   end type
 
+  real, parameter :: KiB = 2.0 ** 20
+  real, parameter :: MiB = 2.0 ** 30
+  real, parameter :: GiB = 2.0 ** 40
+
 contains
 
   subroutine touch ( this )
@@ -61,7 +65,11 @@ contains
       call exec ( 'cp '//trim(from%path)//' '//trim(to%path) )
       to%exist = .true.
     else
-      call exec ( 'curl --silent --fail-with-body --create-dirs --insecure '//trim(from%path)//' --output '//trim(to%path) )
+      if ( from%exist ) then
+        call exec ( 'curl --silent --fail-with-body --create-dirs --insecure '//trim(from%path)//' --output '//trim(to%path) )
+      else
+        stop '*** Error: Remote file does not exist'
+      end if
     end if
   end subroutine
 
@@ -166,8 +174,12 @@ contains
     print '(a, l$)', 'File/Directory exists: ', this%exist
     if ( this%size < 2**10 ) then
       print '(a, i0, a$)', ', Size: ', this%size, 'B'
+    else if ( this%size < 2**20 ) then
+      print '(a, g0.2, a$)', ', Size: ', real(this%size) / KiB, 'KiB'
+    else if ( this%size < 2**30 ) then
+      print '(a, g0.2, a$)', ', Size: ', real(this%size) / MiB, 'MiB'
     else
-      print '(a, g0.2, a$)', ', Size: ', real(this%size) / real(2**10), 'KiB'
+      print '(a, g0.2, a$)', ', Size: ', real(this%size) / GiB, 'GiB'
     end if
     print '(a)', ', Path: '//trim(this%path)
   end subroutine
