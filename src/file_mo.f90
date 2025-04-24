@@ -7,6 +7,7 @@ module file_mo
   public :: dirname, filename, basename, extname, schemename
   public :: find, touch, rm, cp, mv
   public :: mkdir, rmdir, cldir
+  public :: KiB, MiB, GiB
 
   type file_ty
 

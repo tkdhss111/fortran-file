@@ -7,3 +7,4 @@ test:
 
 clean:
 	rm -r build
+	rm tags
