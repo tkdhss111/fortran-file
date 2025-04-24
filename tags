@@ -27,6 +27,7 @@ dir_c	test/unit_test.f90	/^  type(file_ty) :: dir_b, dir_c,/;"	v	program:unit_te
 dir_d	test/unit_test.f90	/^  type(file_ty) :: dir_b, dir_c, dir_d$/;"	v	program:unit_test_file_mo
 dirname	src/file_mo.f90	/^  pure function dirname /;"	f	module:file_mo
 dirs	test/unit_test.f90	/^  type(file_ty), allocatable :: files(:), dirs(/;"	v	program:unit_test_file_mo
+encoding	src/file_mo.f90	/^    character(:), allocatable :: encoding /;"	k	type:file_ty
 exec	src/file_mo.f90	/^  subroutine exec /;"	s	module:file_mo
 exist	src/file_mo.f90	/^    logical      :: exist /;"	k	type:file_ty
 ext	src/file_mo.f90	/^    character(:), allocatable :: ext /;"	k	type:file_ty
@@ -38,7 +39,8 @@ file2	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2,/;"	v	progr
 file2_cp	test/unit_test.f90	/^  type(file_ty) :: file1_cp, file2_cp,/;"	v	program:unit_test_file_mo
 file2_mv	test/unit_test.f90	/^  type(file_ty) :: file1_cp, file2_cp, file1_mv, file2_mv$/;"	v	program:unit_test_file_mo
 file3	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2, file3,/;"	v	program:unit_test_file_mo
-file_local	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2, file3, file_remote, file_local$/;"	v	program:unit_test_file_mo
+file_local	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2, file3, file_remote, file_local,/;"	v	program:unit_test_file_mo
+file_local2	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2, file3, file_remote, file_local, file_local2$/;"	v	program:unit_test_file_mo
 file_mo	src/file_mo.f90	/^module file_mo$/;"	m
 file_new	test/unit_test.f90	/^  type(file_ty) :: file_new,/;"	v	program:unit_test_file_mo
 file_remote	test/unit_test.f90	/^  type(file_ty) :: file_new, file1, file2, file3, file_remote,/;"	v	program:unit_test_file_mo

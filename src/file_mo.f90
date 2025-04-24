@@ -18,6 +18,7 @@ module file_mo
     character(:), allocatable :: ext      ! Extension of a file
     character(:), allocatable :: content  ! File content
     character(:), allocatable :: scheme   ! URI scheme {https, http, file}
+    character(:), allocatable :: encoding ! File encoding
     character(1) :: type  = ''
     integer(8)   :: size  = 0
     logical      :: exist = .false.
@@ -61,18 +62,37 @@ contains
   end subroutine
 
   subroutine cp ( from, to )
+
     class(file_ty), intent(inout) :: from
     type(file_ty),  intent(inout) :: to
+    character(:), allocatable     :: cmd
+    logical                       :: need_iconv
+
+    need_iconv = from%encoding /= '' .and. to%encoding /= '' .and. from%encoding /= to%encoding
+
     if ( from%local ) then
-      call exec ( 'cp '//trim(from%path)//' '//trim(to%path) )
-      to%exist = .true.
+      if ( need_iconv ) then
+        cmd = 'iconv -f '//trim(from%encoding)//&
+                   ' -t '//trim(to%encoding)//&
+                   ' '//trim(from%path)//' > '//trim(to%path)
+      else
+        cmd = 'cp '//trim(from%path)//' '//trim(to%path)
+      end if
     else
       if ( from%exist ) then
-        call exec ( 'curl --silent --fail-with-body --create-dirs --insecure '//trim(from%path)//' --output '//trim(to%path) )
+        if ( need_iconv ) then
+          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure '//&
+                trim(from%path)//' | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > '//trim(to%path)
+        else
+          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure '//&
+                trim(from%path)//' > '//trim(to%path)
+        end if
       else
         stop '*** Error: Remote file does not exist'
       end if
     end if
+    call exec ( cmd )
+    to%exist = .true.
   end subroutine
 
   subroutine mv ( from, to )
@@ -142,14 +162,20 @@ contains
     end if
   end subroutine
 
-  subroutine init_file ( this, path, content )
+  subroutine init_file ( this, path, content, encoding )
     class(file_ty),         intent(inout) :: this
     character(*),           intent(in)    :: path
     character(*), optional, intent(in)    :: content
-    if ( present( content ) ) then
+    character(*), optional, intent(in)    :: encoding
+    if ( present ( content ) ) then
       this%content = trim(content)
     else
       this%content = 'NA'
+    end if
+    if ( present ( encoding ) ) then
+      this%encoding = trim(encoding)
+    else
+      this%encoding = ''
     end if
     this%path     = trim(path)
     this%dir      = dirname    ( path )

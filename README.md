@@ -9,6 +9,8 @@ touch, cp, mv, rm, mkdir, rmdir, cldir, print and find
 
 - Can copy URI file to local via curl
 
+- Change file encoding with cp if encoding differs
+
 ## file_ty
 
 ```{.fortran}
@@ -21,6 +23,7 @@ type file_ty
   character(:), allocatable :: ext      ! Extension of a file
   character(:), allocatable :: content  ! File content
   character(:), allocatable :: scheme   ! URI scheme {https, http, file}
+  character(:), allocatable :: encoding ! File encoding
   character(1) :: type  = ''
   integer(8)   :: size  = 0
   logical      :: exist = .false.

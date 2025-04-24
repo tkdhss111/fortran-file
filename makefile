@@ -8,3 +8,7 @@ test:
 clean:
 	rm -r build
 	rm tags
+	rm ./test/encoding=sjis.csv
+	rm ./test/encoding=utf8.csv
+	rm ./test/utf8.csv
+	rm ./test/family_crest.png

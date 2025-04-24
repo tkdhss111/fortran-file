@@ -4,7 +4,7 @@ program unit_test_file_mo
 
   implicit none
 
-  type(file_ty) :: file_new, file1, file2, file3, file_remote, file_local
+  type(file_ty) :: file_new, file1, file2, file3, file_remote, file_local, file_local2
   type(file_ty) :: dir_b, dir_c, dir_d
   type(file_ty) :: file1_cp, file2_cp, file1_mv, file2_mv
   type(file_ty), allocatable :: files(:), dirs(:)
@@ -206,7 +206,7 @@ program unit_test_file_mo
   call dir_b%cldir
 
   print *, '------------------------------------------'
-  print *, 'Test 4: Copy remote file via curl'
+  print *, 'Test 4-1: Copy remote file via curl'
   print *, '------------------------------------------'
 
   call file_remote%init ( path = 'https://stats.dip.jp/css/tkd_crest_sakura.png' )
@@ -215,6 +215,25 @@ program unit_test_file_mo
   call cp ( from = file_remote, to = file_local )
   !call mv ( from = file_remote, to = file_local ) ! Error
   !call rm ( file_remote ) ! Error
+
+  print *, '-----------------------------------------------------------------'
+  print *, 'Test 4-2: Copy remote file via curl with different file encodings'
+  print *, '-----------------------------------------------------------------'
+
+  call file_remote%init ( path = 'https://www.tepco.co.jp/forecast/html/images/juyo-d1-j.csv', encoding = 'SHIFT-JIS' )
+  call file_local%init ( path = './utf8.csv', encoding = 'UTF-8' )
+  call file_remote%print
+  call cp ( from = file_remote, to = file_local )
+
+  print *, '-----------------------------------------------------------------'
+  print *, 'Test 4-3: Copy local file with different file encodings'
+  print *, '-----------------------------------------------------------------'
+  call file_remote%init ( path = 'https://www.tepco.co.jp/forecast/html/images/juyo-d1-j.csv', encoding = 'SHIFT-JIS' )
+  call file_local%init ( path = './encoding=sjis.csv', encoding = 'SHIFT-JIS' )
+  call cp ( from = file_remote, to = file_local )
+  call file_local2%init ( path = './encoding=utf8.csv', encoding = 'UTF-8' )
+  call file_local2%print
+  call cp ( from = file_local, to = file_local2 )
 
   print *, '------------------------------------------'
   call touch ( file1 ) ! for recovery to the initial setup
