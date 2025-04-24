@@ -37,9 +37,10 @@ module file_mo
 
   end type
 
-  real, parameter :: KiB = 2.0 ** 20
-  real, parameter :: MiB = 2.0 ** 30
-  real, parameter :: GiB = 2.0 ** 40
+  integer, parameter :: KiB = 2 ** 10
+  integer, parameter :: MiB = 2 ** 20
+  integer, parameter :: GiB = 2 ** 30
+  integer, parameter :: TiB = 2 ** 40
 
 contains
 

@@ -6,12 +6,13 @@
 !_TAG_PROGRAM_VERSION	5.9~svn20110310	//
 10	src/file_mo.f90	/^    10 rewind (u)$/;"	l	function:count_rows	file:
 CMAKE	makefile	/^CMAKE       := cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug$/;"	m
-GiB	src/file_mo.f90	/^  real, parameter :: GiB /;"	v	module:file_mo
-KiB	src/file_mo.f90	/^  real, parameter :: KiB /;"	v	module:file_mo
+GiB	src/file_mo.f90	/^  integer, parameter :: GiB /;"	v	module:file_mo
+KiB	src/file_mo.f90	/^  integer, parameter :: KiB /;"	v	module:file_mo
 MKDIR_BUILD	makefile	/^MKDIR_BUILD := mkdir -p build && cd build$/;"	m
 MKFILE	src/makefile	/^MKFILE:=-C .. -f makefile$/;"	m
 MKFILE	test/makefile	/^MKFILE:=-C .. -f makefile$/;"	m
-MiB	src/file_mo.f90	/^  real, parameter :: MiB /;"	v	module:file_mo
+MiB	src/file_mo.f90	/^  integer, parameter :: MiB /;"	v	module:file_mo
+TiB	src/file_mo.f90	/^  integer, parameter :: TiB /;"	v	module:file_mo
 basename	src/file_mo.f90	/^    character(:), allocatable :: basename /;"	k	type:file_ty
 basename	src/file_mo.f90	/^  pure function basename /;"	f	module:file_mo
 check_uri_file	src/file_mo.f90	/^  subroutine check_uri_file /;"	s	module:file_mo
