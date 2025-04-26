@@ -241,6 +241,12 @@ program unit_test_file_mo
   call file_remote%init ( path = 'https://denkiyoho.hepco.co.jp/area/data/zip/202507-07_hokkaido_denkiyohou.zip' )
   call file_remote%print
 
+  print *, '-----------------------------------------------------------------'
+  print *, 'Test 4-5: Existent remote file'
+  print *, '-----------------------------------------------------------------'
+  call file_remote%init ( path = 'https://denkiyoho.hepco.co.jp/area/data/zip/202004-06_hokkaido_denkiyohou.zip' )
+  call file_remote%print
+
   print *, '------------------------------------------'
   call touch ( file1 ) ! for recovery to the initial setup
 end program

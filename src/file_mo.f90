@@ -509,8 +509,9 @@ contains
     this%exist = .false.
     do
       read ( u, '(a)', iostat = iostat ) line
+      print *, 'line: ', trim(line)
       if ( iostat /=0 ) exit
-      if ( index ( line, 'HTTP/' ) > 0 .and. index ( line, '200 OK' ) > 0 ) then
+      if ( index ( line, 'HTTP/' ) > 0 .and. index ( line, '200' ) > 0 ) then
         this%exist = .true.
         this%local = .false.
       end if
