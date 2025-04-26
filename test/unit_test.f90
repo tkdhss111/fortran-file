@@ -235,6 +235,12 @@ program unit_test_file_mo
   call file_local2%print
   call cp ( from = file_local, to = file_local2 )
 
+  print *, '-----------------------------------------------------------------'
+  print *, 'Test 4-4: Non-existent remote file'
+  print *, '-----------------------------------------------------------------'
+  call file_remote%init ( path = 'https://denkiyoho.hepco.co.jp/area/data/zip/202507-07_hokkaido_denkiyohou.zip' )
+  call file_remote%print
+
   print *, '------------------------------------------'
   call touch ( file1 ) ! for recovery to the initial setup
 end program

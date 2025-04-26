@@ -147,7 +147,7 @@ contains
       exitstat = exitstat,      &
       cmdstat  = cmdstat,       &
       cmdmsg   = cmdmsg )
-    print *, 'Command: '//trim(command)
+    !print *, 'Command: '//trim(command)
     if ( cmdstat > 0 ) then
       print *, 'Command execution failed with error: '//trim(cmdmsg)
       stop cmdstat
@@ -399,7 +399,7 @@ contains
       stop '*** Error: Do not include ~ as home directory in path.'
     end if
 
-    print *, 'Command: ', trim(command)
+    !print *, 'Command: ', trim(command)
 
     call execute_command_line ( command = command, &
       exitstat = exitstat, cmdstat = cmdstat, cmdmsg = cmdmsg )
@@ -484,6 +484,7 @@ contains
   end function
 
   subroutine check_uri_file ( this, image )
+
     class(file_ty),    intent(inout) :: this
     integer, optional, intent(in)    :: image
     integer :: image_
@@ -491,19 +492,25 @@ contains
     character(256) :: line
     character(256) :: tmpfile
     integer j, u, iostat
+
     if ( present( image ) ) then
       image_ = image
     else
       image_ = 1
     end if
+
     write( tmpfile, '(a, i0)' ) './tmp', image_
     write ( cmd, '(a, i0)' ) 'curl -sI '//trim(this%path)//' > '//trim(tmpfile)
+
     call exec ( cmd )
+
     open ( newunit = u, file = tmpfile, status = 'old' )
+
+    this%exist = .false.
     do
       read ( u, '(a)', iostat = iostat ) line
       if ( iostat /=0 ) exit
-      if ( index ( line, 'HTTP/' ) > 0 .and. index ( line, '200' ) > 0 ) then
+      if ( index ( line, 'HTTP/' ) > 0 .and. index ( line, '200 OK' ) > 0 ) then
         this%exist = .true.
         this%local = .false.
       end if
@@ -513,7 +520,9 @@ contains
         exit
       end if
     end do
+
     close ( u )
+
   end subroutine check_uri_file
 
   function uri2path ( uri ) result ( path )

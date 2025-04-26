@@ -1,11 +1,9 @@
-HTTP/1.1 200 OK
-Server: Apache
-Last-Modified: Thu, 24 Apr 2025 15:00:07 GMT
-ETag: "26b0-6338779307dcd"
-Accept-Ranges: bytes
-Content-Length: 9904
-Content-Type: text/csv
-Date: Thu, 24 Apr 2025 15:04:15 GMT
-Connection: keep-alive
-Strict-Transport-Security: max-age=15768000 ; preload
+HTTP/2 404 
+date: Sat, 26 Apr 2025 10:44:11 GMT
+x-ms-error-code: WebContentNotFound
+x-ms-request-id: 7595482f-b01e-003c-0998-b66a4a000000
+x-ms-version: 2018-03-28
+x-azure-ref: 20250426T104411Z-1754b9cc9cblcs9mhC1TYOtwan000000145g00000000phuq
+x-fd-int-roxy-purgeid: 0
+x-cache: TCP_MISS
 
