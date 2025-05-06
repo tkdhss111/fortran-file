@@ -269,7 +269,8 @@ contains
     ! Note. Use "image" option for thread safe search (e.g., image = this_image())
     type(file_ty), allocatable         :: files(:)
     character(*), intent(in), optional :: dir
-    character(*), intent(in), optional :: pattern, ignore, type 
+    character(*), intent(in), optional :: pattern, ignore
+    character(1), intent(in), optional :: type
     integer,      intent(in), optional :: maxdepth 
     integer,      intent(in), optional :: image
     logical,      intent(in), optional :: fullpath 
@@ -324,7 +325,7 @@ contains
     end if
 
     if ( present( type ) ) then
-      type_ = trim(type)
+      type_ = type
     else
       type_ = 'f'
     end if
@@ -424,10 +425,10 @@ contains
     do i = 1, nrows
       read ( u, '(a)' ) path
       files(i)%path = trim(path)
-      if ( type == 'f' ) then
+      if ( type_ == 'f' ) then
         print '(a, i0, a, a)', '    File #', i, ': ', trim(files(i)%path)
       end if
-      if ( type == 'd' ) then
+      if ( type_ == 'd' ) then
         n = len_trim(files(i)%path)
         if ( files(i)%path(n:n) /= '/' ) files(i)%path = trim(files(i)%path)//'/' 
         print '(a, i0, a, a)', '    Dir #', i, ': ', trim(files(i)%path)

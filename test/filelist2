@@ -1,0 +1,6 @@
+./dir_test/dir
+./dir_test/dir=c/test=c.txt
+./dir_test/dir_a/file_a1.txt
+./dir_test/dir_a/file_a2.csv
+./dir_test/dir_a/file_a3.html
+./dir_test/filelist1
