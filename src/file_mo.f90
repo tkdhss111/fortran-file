@@ -53,7 +53,7 @@ contains
   subroutine rm ( this )
     class(file_ty), intent(inout) :: this
     if ( this%local ) then
-      call exec ( 'rm '//trim(this%path) )
+      call exec ( 'rm -f '//trim(this%path) )
       this%exist = .false.
     else
       stop '*** Error: Can not remove file in remote'
