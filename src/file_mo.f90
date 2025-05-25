@@ -4,7 +4,7 @@ module file_mo
 
   private
   public :: file_ty
-  public :: dirname, filename, basename, extname, schemename
+  public :: hostname, dirname, filename, basename, extname, schemename
   public :: find, touch, rm, cp, mv
   public :: mkdir, rmdir, cldir
   public :: KiB, MiB, GiB
@@ -14,6 +14,7 @@ module file_mo
     character(:), allocatable :: path     ! Full/relative path to a file
     character(:), allocatable :: dir      ! Directory name with tailing /
     character(:), allocatable :: name     ! File name with extention
+    character(:), allocatable :: hostname ! Hostname
     character(:), allocatable :: basename ! File name without extention
     character(:), allocatable :: ext      ! Extension of a file
     character(:), allocatable :: content  ! File content
@@ -179,6 +180,7 @@ contains
     this%path     = trim(path)
     this%dir      = dirname    ( path )
     this%basename = basename   ( path )
+    this%hostname = hostname ()
     this%name     = filename   ( path )
     this%ext      = extname    ( path )
     this%scheme   = schemename ( path )
@@ -552,5 +554,12 @@ contains
       path = uri
     end if
   end function uri2path
+
+  function hostname () result ( name )
+    character(100)            :: name_
+    character(:), allocatable :: name
+    call hostnm ( name_ )
+    name = trim(name_)
+  end function hostname
 
 end module
