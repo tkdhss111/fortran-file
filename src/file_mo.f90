@@ -43,6 +43,12 @@ module file_mo
   integer, parameter :: MiB = 2 ** 20
   integer, parameter :: GiB = 2 ** 30
 
+  interface
+      subroutine hostnm(name)
+          character(len=*) :: name
+      end subroutine hostnm
+  end interface
+
 contains
 
   subroutine touch ( this )
@@ -57,7 +63,7 @@ contains
       call exec ( 'rm -f '//trim(this%path) )
       this%exist = .false.
     else
-      stop '*** Error: Can not remove file in remote'
+      error stop '*** Error: Can not remove file in remote'
     end if
   end subroutine
 
@@ -88,9 +94,10 @@ contains
                 trim(from%path)//' > '//trim(to%path)
         end if
       else
-        stop '*** Error: Remote file does not exist'
+        error stop '*** Error: Remote file does not exist'
       end if
     end if
+    print *, 'Command: ', trim(cmd)
     call exec ( cmd )
     to%exist = .true.
   end subroutine
@@ -103,7 +110,7 @@ contains
       from%exist = .false.
       to%exist   = .true.
     else
-      stop '*** Error: Can not move file in remote'
+      error stop '*** Error: Can not move file in remote'
     end if
   end subroutine
 
@@ -112,7 +119,7 @@ contains
     if ( this%local ) then
       call exec ( 'mkdir -p '//trim(this%dir) )
     else
-      stop '*** Error: Can not make directory in remote'
+      error stop '*** Error: Can not make directory in remote'
     end if
   end subroutine
 
@@ -121,7 +128,7 @@ contains
     if ( this%local ) then
       call exec ( 'rmdir '//trim(this%dir) )
     else
-      stop '*** Error: Can not remove directory in remote'
+      error stop '*** Error: Can not remove directory in remote'
     end if
   end subroutine
 
@@ -130,7 +137,7 @@ contains
     type(file_ty), allocatable    :: files(:)
     integer i
     if ( .not. this%local ) then
-      stop '*** Error: Can not clear files in remote'
+      error stop '*** Error: Can not clear files in remote'
     end if
     files = find ( dir =  this%dir )
     do i = 1, size(files)
@@ -150,48 +157,50 @@ contains
     !print *, 'Command: '//trim(command)
     if ( cmdstat > 0 ) then
       print *, 'Command execution failed with error: '//trim(cmdmsg)
-      stop cmdstat
+      error stop cmdstat
     else if ( cmdstat < 0 ) then
       print *, 'Command execution not supported.'
-      stop cmdstat
+      error stop cmdstat
     else ! cmdstat == 0
       if ( exitstat /= 0 ) then 
         print *, 'Command completed with status ', exitstat
-        stop exitstat
+        error stop exitstat
       end if
     end if
   end subroutine
 
   subroutine init_file ( this, path, content, encoding )
     class(file_ty),         intent(inout) :: this
-    character(*),           intent(in)    :: path
+    character(*), optional, intent(in)    :: path
     character(*), optional, intent(in)    :: content
     character(*), optional, intent(in)    :: encoding
-    if ( present ( content ) ) then
+    if ( present( content ) ) then
       this%content = trim(content)
     else
       this%content = 'NA'
     end if
-    if ( present ( encoding ) ) then
+    if ( present( encoding ) ) then
       this%encoding = trim(encoding)
     else
       this%encoding = ''
     end if
-    this%path     = trim(path)
-    this%dir      = dirname    ( path )
-    this%basename = basename   ( path )
-    this%hostname = hostname ()
-    this%name     = filename   ( path )
-    this%ext      = extname    ( path )
-    this%scheme   = schemename ( path )
+    if ( present( path ) ) then
+      this%path = trim(path)
+    end if
+    this%dir      = dirname   ( this%path )
+    this%basename = basename  ( this%path )
+    this%hostname = hostname  ()
+    this%name     = filename  ( this%path )
+    this%ext      = extname   ( this%path )
+    this%scheme   = schemename( this%path )
     if ( this%scheme == 'NA' ) then
-      inquire ( file = this%path, exist = this%exist, size = this%size )
+      inquire( file = this%path, exist = this%exist, size = this%size )
       this%local = .true.
     else
-      call check_uri_file ( this )
+      call check_uri_file( this )
       if ( this%scheme == 'file' ) then
         this%local = .true.
-        this%path = uri2path ( this%path )
+        this%path = uri2path( this%path )
       else
         this%local = .false.
       end if
@@ -340,11 +349,11 @@ contains
     !
     ! Search patterns
     !
-    nors = count_ors ( pattern_ )
+    nors = count_ors( pattern_ )
 
     if ( nors > 0 ) then
       print *, 'Number of patterns', nors
-      allocate ( patterns(nors + 1) )
+      allocate( patterns(nors + 1) )
       do i = 1, len_trim(pattern_)
         if (pattern_(i:i) == '|' ) pattern_(i:i) = ','
       end do
@@ -360,11 +369,11 @@ contains
     !
     ! Exclude search patterns
     !
-    nors = count_ors ( ignore_ )
+    nors = count_ors( ignore_ )
 
     if ( nors > 0 ) then
       print *, 'Number of ignores', nors
-      allocate ( ignores(nors + 1) )
+      allocate( ignores(nors + 1) )
       do concurrent ( i = 1:len_trim(ignore_) )
         if (ignore_(i:i) == '|' ) ignore_(i:i) = ','
       end do
@@ -380,7 +389,7 @@ contains
     do
       write ( fno, '(i0)' ) image_
       filelist = trim(list_fnms)//trim(fno)
-      inquire ( file = filelist, exist = exist )
+      inquire( file = filelist, exist = exist )
       if ( .not. exist ) exit
       image_ = image_ + 1
     end do
@@ -398,10 +407,10 @@ contains
     end if
 
     if ( index( command, '~' ) > 0 ) then
-      stop '*** Error: Do not include ~ as home directory in path.'
+      error stop '*** Error: Do not include ~ as home directory in path.'
     end if
 
-    !print *, 'Command: ', trim(command)
+    print *, 'Command: ', trim(command)
 
     call execute_command_line ( command = command, &
       exitstat = exitstat, cmdstat = cmdstat, cmdmsg = cmdmsg )
@@ -450,7 +459,7 @@ contains
     end if
 
     if ( exitstat /= 0 ) then
-      stop '*** Error: Function "find" is not thread safe. Consider using "image" option.'
+      error stop '*** Error: Function "find" is not thread safe. Consider using "image" option.'
     end if
 
     print *, repeat( '-', 79 )
