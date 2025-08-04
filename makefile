@@ -5,6 +5,9 @@ MKDIR_BUILD := mkdir -p build && cd build
 test:
 	$(MKDIR_BUILD) && $(CMAKE) && ninja && ctest -VV
 
+debug:
+	$(MKDIR_BUILD) && $(CMAKE) && ninja
+
 clean:
 	rm -rf build
 	rm -f tags

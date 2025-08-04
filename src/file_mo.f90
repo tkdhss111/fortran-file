@@ -44,9 +44,9 @@ module file_mo
   integer, parameter :: GiB = 2 ** 30
 
   interface
-      subroutine hostnm(name)
-          character(len=*) :: name
-      end subroutine hostnm
+    subroutine my_hostnm ( name )
+      character(*) :: name
+    end subroutine
   end interface
 
 contains
@@ -564,6 +564,7 @@ contains
     end if
   end function uri2path
 
+  ! Intel only
   function hostname () result ( name )
     character(100)            :: name_
     character(:), allocatable :: name
