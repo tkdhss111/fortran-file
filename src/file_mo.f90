@@ -44,7 +44,7 @@ module file_mo
   integer, parameter :: GiB = 2 ** 30
 
   interface
-    subroutine my_hostnm ( name )
+    subroutine hostnm ( name )
       character(*) :: name
     end subroutine
   end interface
