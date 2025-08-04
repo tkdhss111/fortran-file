@@ -97,7 +97,7 @@ contains
         error stop '*** Error: Remote file does not exist'
       end if
     end if
-    write ( *, * ) 'Command: ', trim(cmd)
+    write ( *, '(a)' ) 'Command: '//trim(cmd)
     call exec ( cmd )
     to%exist = .true.
   end subroutine
@@ -156,14 +156,14 @@ contains
       cmdmsg   = cmdmsg )
     !print *, 'Command: '//trim(command)
     if ( cmdstat > 0 ) then
-      write ( *, * ) 'Command execution failed with error: '//trim(cmdmsg)
+      write ( *, '(a)' ) 'Command execution failed with error: '//trim(cmdmsg)
       error stop cmdstat
     else if ( cmdstat < 0 ) then
-      write ( *, * ) 'Command execution not supported.'
+      write ( *, '(a)' ) 'Command execution not supported.'
       error stop cmdstat
     else ! cmdstat == 0
       if ( exitstat /= 0 ) then 
-        write ( *, * ) 'Command completed with status ', exitstat
+        write ( *, '(a)' ) 'Command completed with status ', exitstat
         error stop exitstat
       end if
     end if
