@@ -97,7 +97,7 @@ contains
         error stop '*** Error: Remote file does not exist'
       end if
     end if
-    print *, 'Command: ', trim(cmd)
+    write ( *, * ) 'Command: ', trim(cmd)
     call exec ( cmd )
     to%exist = .true.
   end subroutine
@@ -156,14 +156,14 @@ contains
       cmdmsg   = cmdmsg )
     !print *, 'Command: '//trim(command)
     if ( cmdstat > 0 ) then
-      print *, 'Command execution failed with error: '//trim(cmdmsg)
+      write ( *, * ) 'Command execution failed with error: '//trim(cmdmsg)
       error stop cmdstat
     else if ( cmdstat < 0 ) then
-      print *, 'Command execution not supported.'
+      write ( *, * ) 'Command execution not supported.'
       error stop cmdstat
     else ! cmdstat == 0
       if ( exitstat /= 0 ) then 
-        print *, 'Command completed with status ', exitstat
+        write ( *, * ) 'Command completed with status ', exitstat
         error stop exitstat
       end if
     end if
@@ -296,7 +296,7 @@ contains
     integer                            :: i, u, n, nrows, nors
     logical                            :: exist
 
-    print *, repeat( '-', 79 )
+    write ( *, * ) repeat( '-', 79 )
 
     if ( present( dir ) ) then
       dir_ = trim(dir)
@@ -352,7 +352,7 @@ contains
     nors = count_ors( pattern_ )
 
     if ( nors > 0 ) then
-      print *, 'Number of patterns', nors
+      write ( *, * ) 'Number of patterns', nors
       allocate( patterns(nors + 1) )
       do i = 1, len_trim(pattern_)
         if (pattern_(i:i) == '|' ) pattern_(i:i) = ','
@@ -372,7 +372,7 @@ contains
     nors = count_ors( ignore_ )
 
     if ( nors > 0 ) then
-      print *, 'Number of ignores', nors
+      write ( *, * ) 'Number of ignores', nors
       allocate( ignores(nors + 1) )
       do concurrent ( i = 1:len_trim(ignore_) )
         if (ignore_(i:i) == '|' ) ignore_(i:i) = ','
@@ -410,28 +410,28 @@ contains
       error stop '*** Error: Do not include ~ as home directory in path.'
     end if
 
-    print *, 'Command: ', trim(command)
+    write ( *, * ) 'Command: ', trim(command)
 
-    call execute_command_line ( command = command, &
+    call execute_command_line( command = command, &
       exitstat = exitstat, cmdstat = cmdstat, cmdmsg = cmdmsg )
 
     if ( cmdstat /= 0 ) then
-      print *, trim(cmdmsg)
+      write ( *, * ) trim(cmdmsg)
       return
     end if
 
     if ( exitstat /= 0 ) then
-      print *, '*** Warning: No file found in the search directory: '//trim(dir_)
-      allocate ( files(1) )
+      write ( *, * ) '*** Warning: No file found in the search directory: '//trim(dir_)
+      allocate( files(1) )
       files(1)%path = 'NA'
       return
     end if
 
     open ( newunit = u, file = filelist, status = 'old' )
     nrows = count_rows ( u )
-    print *, 'Number of files/dirs found: ', nrows
+    write ( *, * ) 'Number of files/dirs found: ', nrows
 
-    allocate ( files(nrows) )
+    allocate( files(nrows) )
     do i = 1, nrows
       read ( u, '(a)' ) path
       files(i)%path = trim(path)
@@ -450,11 +450,11 @@ contains
       call files(i)%init ( files(i)%path ) 
     end do
 
-    call execute_command_line ( command = 'rm '//trim(filelist), &
-                                exitstat = exitstat, cmdstat = cmdstat, cmdmsg = cmdmsg )
+    call execute_command_line( command = 'rm '//trim(filelist), &
+                               exitstat = exitstat, cmdstat = cmdstat, cmdmsg = cmdmsg )
 
     if ( cmdstat /= 0 ) then
-      print *, trim(cmdmsg)
+      write ( *, * ) trim(cmdmsg)
       return
     end if
 
@@ -462,7 +462,7 @@ contains
       error stop '*** Error: Function "find" is not thread safe. Consider using "image" option.'
     end if
 
-    print *, repeat( '-', 79 )
+    write ( *, * ) repeat( '-', 79 )
 
   end function
 
@@ -482,7 +482,7 @@ contains
     character(255)      :: iomsg
     integer             :: iostat
     nr = 0
-    rewind(u)
+    rewind( u )
     do
       read ( u, '()', end = 10, iostat = iostat, iomsg = iomsg )
       if ( iostat /= 0 ) then
@@ -491,7 +491,7 @@ contains
       end if
       nr = nr + 1
     end do
-    10 rewind (u)
+    10 rewind( u )
   end function
 
   subroutine check_uri_file ( this, image )
@@ -513,7 +513,7 @@ contains
     write( tmpfile, '(a, i0)' ) './tmp', image_
     write ( cmd, '(a, i0)' ) 'curl -sI '//trim(this%path)//' > '//trim(tmpfile)
 
-    call exec ( cmd )
+    call exec( cmd )
 
     open ( newunit = u, file = tmpfile, status = 'old' )
 
@@ -522,11 +522,11 @@ contains
       read ( u, '(a)', iostat = iostat ) line
       !print *, 'line: ', trim(line)
       if ( iostat /=0 ) exit
-      if ( index ( line, 'HTTP/' ) > 0 .and. index ( line, '200' ) > 0 ) then
+      if ( index( line, 'HTTP/' ) > 0 .and. index( line, '200' ) > 0 ) then
         this%exist = .true.
         this%local = .false.
       end if
-      j = index ( line, 'Content-Length:' )
+      j = index( line, 'Content-Length:' )
       if ( j > 0 ) then
         read ( line(16:len_trim(line)), * ) this%size
         exit
@@ -544,7 +544,7 @@ contains
     path = ''
     j = 1
     ! Remove 'file://' prefix
-    if (index(uri, 'file://') == 1) then
+    if ( index(uri, 'file://') == 1 ) then
       do i = 8, len_trim(uri)
         ! On Windows, change '/' to '\'
 #ifdef _WIN32
@@ -567,7 +567,7 @@ contains
   function hostname () result ( name )
     character(100)            :: name_
     character(:), allocatable :: name
-    call hostnm ( name_ )
+    call hostnm( name_ )
     name = trim(name_)
   end function hostname
 
