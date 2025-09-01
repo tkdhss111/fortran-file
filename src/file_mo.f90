@@ -43,11 +43,11 @@ module file_mo
   integer, parameter :: MiB = 2 ** 20
   integer, parameter :: GiB = 2 ** 30
 
-  interface
-    subroutine hostnm ( name )
-      character(*) :: name
-    end subroutine
-  end interface
+!  interface
+!    subroutine hostnm ( name )
+!      character(*) :: name
+!    end subroutine
+!  end interface
 
 contains
 

@@ -17,7 +17,7 @@ program unit_test_file_mo
   print *, 'dirname    : ', dirname    ( './dir_test/dir_a/file_a1.txt' )
   print *, 'filename   : ', filename   ( './dir_test/dir_a/file_a1.txt' )
   print *, 'basename   : ', basename   ( './dir_test/dir_a/file_a1.txt' )
-  print *, 'hostname   : ---'//hostname()//'---'
+  print *, 'hostname   : '//hostname()
   print *, 'extname    : ', extname    ( './dir_test/dir_a/file_a1.txt' )
   print *, 'schemename : ', schemename ( 'https://github.com/tkdhss111/fortran-file/blob/main/test/dir_test/dir_a/file_a1.txt' )
 
