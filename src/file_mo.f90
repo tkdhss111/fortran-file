@@ -9,8 +9,14 @@ module file_mo
   public :: mkdir, rmdir, cldir
   public :: KiB, MiB, GiB
 
-  type file_ty
+  type t_ty
+    character(len=19) :: accessed = '' ! YYYY-MM-DD HH:MM:SS
+    character(len=19) :: modified = '' ! YYYY-MM-DD HH:MM:SS
+    character(len=19) :: changed  = '' ! YYYY-MM-DD HH:MM:SS
+  end type
 
+  type, extends(t_ty) :: file_ty
+    type(t_ty) :: t
     character(:), allocatable :: path     ! Full/relative path to a file
     character(:), allocatable :: dir      ! Directory name with tailing /
     character(:), allocatable :: name     ! File name with extention
@@ -42,12 +48,6 @@ module file_mo
   integer, parameter :: KiB = 2 ** 10
   integer, parameter :: MiB = 2 ** 20
   integer, parameter :: GiB = 2 ** 30
-
-!  interface
-!    subroutine hostnm ( name )
-!      character(*) :: name
-!    end subroutine
-!  end interface
 
 contains
 
@@ -141,7 +141,7 @@ contains
     end if
     files = find ( dir =  this%dir )
     do i = 1, size(files)
-      call rm ( files(i) ) 
+      call rm ( files(i) )
     end do
   end subroutine
 
@@ -162,7 +162,7 @@ contains
       write ( *, '(a)' ) 'Command execution not supported.'
       error stop cmdstat
     else ! cmdstat == 0
-      if ( exitstat /= 0 ) then 
+      if ( exitstat /= 0 ) then
         write ( *, '(a)' ) 'Command completed with status ', exitstat
         error stop exitstat
       end if
@@ -174,6 +174,7 @@ contains
     character(*), optional, intent(in)    :: path
     character(*), optional, intent(in)    :: content
     character(*), optional, intent(in)    :: encoding
+    type(t_ty) :: t
     if ( present( content ) ) then
       this%content = trim(content)
     else
@@ -205,6 +206,12 @@ contains
         this%local = .false.
       end if
     end if
+    if ( this%exist .and. this%local ) then
+      t = get_file_times( this%path )
+      this%accessed = t%accessed
+      this%modified = t%modified
+      this%changed  = t%changed
+    end if
   end subroutine
 
   subroutine print_file ( this )
@@ -219,7 +226,10 @@ contains
     else
       print '(a, g0.2, a$)', ', Size: ', real(this%size) / GiB, 'GiB'
     end if
-    print '(a)', ', Path: '//trim(this%path)
+    print '(a$)', ', Path: '//trim(this%path)
+    print '(a$)', ', Accessed: '//trim(this%accessed)
+    print '(a$)', ', Modified: '//trim(this%modified)
+    print '(a)', ', Changed:  '//trim(this%changed)
   end subroutine
 
   pure function dirname ( path )
@@ -281,17 +291,17 @@ contains
     character(*), intent(in), optional :: dir
     character(*), intent(in), optional :: pattern, ignore
     character(1), intent(in), optional :: type
-    integer,      intent(in), optional :: maxdepth 
+    integer,      intent(in), optional :: maxdepth
     integer,      intent(in), optional :: image
-    logical,      intent(in), optional :: fullpath 
+    logical,      intent(in), optional :: fullpath
     logical                            :: fullpath_
     character(1000)                    :: dir_, pattern_, ignore_, maxdepth_
     character(1)                       :: type_
     character(1000)                    :: list_fnms = 'filelist', fno
     character(1000)                    :: command, cmdmsg, filelist
-    character(1000)                    :: path, pwd 
+    character(1000)                    :: path, pwd
     character(30), allocatable         :: patterns(:), ignores(:)
-    integer                            :: cmdstat, exitstat 
+    integer                            :: cmdstat, exitstat
     integer                            :: image_
     integer                            :: i, u, n, nrows, nors
     logical                            :: exist
@@ -301,7 +311,7 @@ contains
     if ( present( dir ) ) then
       dir_ = trim(dir)
       n = len_trim(dir_)
-      if ( dir_(n:n) /= '/' ) dir_ = trim(dir_)//'/' 
+      if ( dir_(n:n) /= '/' ) dir_ = trim(dir_)//'/'
     else
       dir_ = './'
     end if
@@ -359,7 +369,7 @@ contains
       end do
       read ( pattern_, * ) patterns
       pattern_ = '-iname "'//trim(patterns(1))//'"'
-      do i = 2, nors + 1 
+      do i = 2, nors + 1
         pattern_ = trim(pattern_)//' -or -iname "'//trim(patterns(i))//'"'
       end do
     else
@@ -379,7 +389,7 @@ contains
       end do
       read ( ignore_, * ) ignores
       ignore_ = ' -and ! -iname "'//trim(ignores(1))//'"'
-      do i = 2, nors + 1 
+      do i = 2, nors + 1
         ignore_ = trim(ignore_)//' -and ! -iname "'//trim(ignores(i))//'"'
       end do
     else
@@ -440,14 +450,14 @@ contains
       end if
       if ( type_ == 'd' ) then
         n = len_trim(files(i)%path)
-        if ( files(i)%path(n:n) /= '/' ) files(i)%path = trim(files(i)%path)//'/' 
+        if ( files(i)%path(n:n) /= '/' ) files(i)%path = trim(files(i)%path)//'/'
         print '(a, i0, a, a)', '    Dir #', i, ': ', trim(files(i)%path)
       end if
     end do
     close ( u )
 
     do i = 1, size(files)
-      call files(i)%init ( files(i)%path ) 
+      call files(i)%init ( files(i)%path )
     end do
 
     call execute_command_line( command = 'rm '//trim(filelist), &
@@ -470,7 +480,7 @@ contains
     character(*), intent(in) :: line
     integer i, n
     n = 0
-    do i = 1, len_trim(line)   
+    do i = 1, len_trim(line)
       if ( line(i:i) /= '|' ) cycle
       n = n + 1
     end do
@@ -546,16 +556,7 @@ contains
     ! Remove 'file://' prefix
     if ( index(uri, 'file://') == 1 ) then
       do i = 8, len_trim(uri)
-        ! On Windows, change '/' to '\'
-#ifdef _WIN32
-        if (uri(i:i) == '/') then
-          path(j:j) = '\'
-        else
-          path(j:j) = uri(i:i)
-        end if
-#else
         path(j:j) = uri(i:i)
-#endif
         j = j + 1
       end do
     else
@@ -564,12 +565,86 @@ contains
     end if
   end function uri2path
 
-  ! Intel only
+  ! Works with both gfortran and ifx
   function hostname () result ( name )
     character(100)            :: name_
     character(:), allocatable :: name
-    call hostnm( name_ )
+#ifdef __GFORTRAN__
+    integer :: status
+    status = hostnm(name_)
+#else
+    call hostnm(name_)
+#endif
     name = trim(name_)
   end function hostname
+
+  !> Convert Unix timestamp to human readable string
+  function unix_to_datetime( unix_time ) result( datetime_str )
+    integer, intent(in) :: unix_time
+    character(len=19) :: datetime_str
+    integer :: y, m, d, hh, mm, ss
+    integer :: days, leap
+    integer :: month_days(12)
+    integer :: t
+
+    t = unix_time
+
+    ss = mod(t, 60)
+    t = t / 60
+    mm = mod(t, 60)
+    t = t / 60
+    hh = mod(t, 24)
+    days = t / 24
+
+    y = 1970
+    do
+      if (mod(y, 4) == 0 .and. (mod(y, 100) /= 0 .or. mod(y, 400) == 0)) then
+        leap = 366
+      else
+        leap = 365
+      end if
+      if (days < leap) exit
+      days = days - leap
+      y = y + 1
+    end do
+
+    if (mod(y, 4) == 0 .and. (mod(y, 100) /= 0 .or. mod(y, 400) == 0)) then
+      month_days = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    else
+      month_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    end if
+
+    m = 1
+    do while (days >= month_days(m))
+      days = days - month_days(m)
+      m = m + 1
+    end do
+    d = days + 1
+
+    write(datetime_str, '(I4,"-",I2.2,"-",I2.2," ",I2.2,":",I2.2,":",I2.2)') &
+      y, m, d, hh, mm, ss
+  end function unix_to_datetime
+
+  !> Get file times (works with both gfortran and ifx)
+  function get_file_times( filename ) result( t )
+    character(len=*), intent(in) :: filename
+    type(t_ty) :: t
+    integer :: stat_array(13), status
+
+#ifdef __GFORTRAN__
+    status = stat(trim(filename), stat_array)
+#else
+    call stat(trim(filename), stat_array, status)
+#endif
+
+    if (status /= 0) then
+      error stop 'get_file_times: failed to stat file: ' // trim(filename)
+    end if
+
+    t%accessed = unix_to_datetime( stat_array(9) )
+    t%modified = unix_to_datetime( stat_array(10) )
+    t%changed  = unix_to_datetime( stat_array(11) )
+
+  end function get_file_times
 
 end module

@@ -210,8 +210,8 @@ program unit_test_file_mo
   print *, 'Test 4-1: Copy remote file via curl'
   print *, '------------------------------------------'
 
-  call file_remote%init ( path = 'https://stats.dip.jp/css/tkd_crest_sakura.png' )
-  call file_local%init ( path = './family_crest.png' )
+  call file_remote%init ( path = 'https://www.tepco.co.jp/forecast/html/images/juyo-d1-j.csv' )
+  call file_local%init ( path = './juyo-d1-j.csv' )
   call file_remote%print
   call cp ( from = file_remote, to = file_local )
   !call mv ( from = file_remote, to = file_local ) ! Error
