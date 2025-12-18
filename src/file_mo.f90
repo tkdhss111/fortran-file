@@ -169,12 +169,19 @@ contains
     end if
   end subroutine
 
-  subroutine init_file ( this, path, content, encoding )
+  subroutine init_file ( this, path, content, encoding, image )
     class(file_ty),         intent(inout) :: this
     character(*), optional, intent(in)    :: path
     character(*), optional, intent(in)    :: content
     character(*), optional, intent(in)    :: encoding
+    integer,      optional, intent(in)    :: image
     type(t_ty) :: t
+    integer :: image_
+    if ( present(image) ) then
+      image_ = image
+    else
+      image_ = 1
+    end if
     if ( present( content ) ) then
       this%content = trim(content)
     else
@@ -198,7 +205,7 @@ contains
       inquire( file = this%path, exist = this%exist, size = this%size )
       this%local = .true.
     else
-      call check_uri_file( this )
+      call check_uri_file( this, image_ )
       if ( this%scheme == 'file' ) then
         this%local = .true.
         this%path = uri2path( this%path )
@@ -207,7 +214,7 @@ contains
       end if
     end if
     if ( this%exist .and. this%local ) then
-      t = get_file_times( this%path )
+      call get_file_times( this%path, t, image_ )
       this%accessed = t%accessed
       this%modified = t%modified
       this%changed  = t%changed
@@ -226,9 +233,9 @@ contains
     else
       print '(a, g0.2, a$)', ', Size: ', real(this%size) / GiB, 'GiB'
     end if
-    print '(a$)', ', Path: '//trim(this%path)
-    print '(a$)', ', Accessed: '//trim(this%accessed)
-    print '(a$)', ', Modified: '//trim(this%modified)
+    print '(a)', ', Path: '//trim(this%path)
+    print '(a)', ', Accessed: '//trim(this%accessed)
+    print '(a)', ', Modified: '//trim(this%modified)
     print '(a)', ', Changed:  '//trim(this%changed)
   end subroutine
 
@@ -457,7 +464,7 @@ contains
     close ( u )
 
     do i = 1, size(files)
-      call files(i)%init ( files(i)%path )
+      call files(i)%init ( files(i)%path, image = image_ )
     end do
 
     call execute_command_line( command = 'rm '//trim(filelist), &
@@ -567,84 +574,70 @@ contains
 
   ! Works with both gfortran and ifx
   function hostname () result ( name )
-    character(100)            :: name_
+    character(256)            :: name_
     character(:), allocatable :: name
-#ifdef __GFORTRAN__
-    integer :: status
-    status = hostnm(name_)
-#else
-    call hostnm(name_)
-#endif
-    name = trim(name_)
+    ! Try various methods to get hostname
+    call get_environment_variable( 'HOSTNAME', name_ )
+    if ( len_trim(name_) == 0 ) then
+      call get_environment_variable( 'HOST', name_ )
+    end if
+    if ( len_trim(name_) == 0 ) then
+      call get_environment_variable( 'COMPUTERNAME', name_ )  ! Windows
+    end if
+    if ( len_trim(name_) == 0 ) then
+      name = 'localhost'
+    else
+      name = trim(name_)
+    end if
   end function hostname
 
-  !> Convert Unix timestamp to human readable string
-  function unix_to_datetime( unix_time ) result( datetime_str )
-    integer, intent(in) :: unix_time
-    character(len=19) :: datetime_str
-    integer :: y, m, d, hh, mm, ss
-    integer :: days, leap
-    integer :: month_days(12)
-    integer :: t
+  !> Get file times using stat shell command (portable, thread-safe)
+  subroutine get_file_times( filepath, t, image )
+    character(len=*), intent(in) :: filepath
+    type(t_ty), intent(out) :: t
+    integer, intent(in), optional :: image
+    character(256) :: tmpfile, line
+    character(512) :: cmd
+    integer :: u, iostat, image_
 
-    t = unix_time
-
-    ss = mod(t, 60)
-    t = t / 60
-    mm = mod(t, 60)
-    t = t / 60
-    hh = mod(t, 24)
-    days = t / 24
-
-    y = 1970
-    do
-      if (mod(y, 4) == 0 .and. (mod(y, 100) /= 0 .or. mod(y, 400) == 0)) then
-        leap = 366
-      else
-        leap = 365
-      end if
-      if (days < leap) exit
-      days = days - leap
-      y = y + 1
-    end do
-
-    if (mod(y, 4) == 0 .and. (mod(y, 100) /= 0 .or. mod(y, 400) == 0)) then
-      month_days = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    if ( present(image) ) then
+      image_ = image
     else
-      month_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+      image_ = 1
     end if
 
-    m = 1
-    do while (days >= month_days(m))
-      days = days - month_days(m)
-      m = m + 1
-    end do
-    d = days + 1
+    write( tmpfile, '(a,i0)' ) '.stat_tmp_', image_
 
-    write(datetime_str, '(I4,"-",I2.2,"-",I2.2," ",I2.2,":",I2.2,":",I2.2)') &
-      y, m, d, hh, mm, ss
-  end function unix_to_datetime
+    ! Use stat command to get file times
+    ! Format: YYYY-MM-DD HH:MM:SS (first 19 chars)
+    cmd = 'stat -c "%x" "'//trim(filepath)//'" 2>/dev/null | cut -c1-19 > '//trim(tmpfile)//'; '// &
+          'stat -c "%y" "'//trim(filepath)//'" 2>/dev/null | cut -c1-19 >> '//trim(tmpfile)//'; '// &
+          'stat -c "%z" "'//trim(filepath)//'" 2>/dev/null | cut -c1-19 >> '//trim(tmpfile)
 
-  !> Get file times (works with both gfortran and ifx)
-  function get_file_times( filename ) result( t )
-    character(len=*), intent(in) :: filename
-    type(t_ty) :: t
-    integer :: stat_array(13), status
+    call execute_command_line( cmd, wait=.true. )
 
-#ifdef __GFORTRAN__
-    status = stat(trim(filename), stat_array)
-#else
-    call stat(trim(filename), stat_array, status)
-#endif
-
-    if (status /= 0) then
-      error stop 'get_file_times: failed to stat file: ' // trim(filename)
+    open( newunit=u, file=tmpfile, status='old', iostat=iostat )
+    if ( iostat /= 0 ) then
+      t%accessed = ''
+      t%modified = ''
+      t%changed  = ''
+      return
     end if
 
-    t%accessed = unix_to_datetime( stat_array(9) )
-    t%modified = unix_to_datetime( stat_array(10) )
-    t%changed  = unix_to_datetime( stat_array(11) )
+    read( u, '(a)', iostat=iostat ) line
+    if ( iostat == 0 ) t%accessed = trim(line)
 
-  end function get_file_times
+    read( u, '(a)', iostat=iostat ) line
+    if ( iostat == 0 ) t%modified = trim(line)
+
+    read( u, '(a)', iostat=iostat ) line
+    if ( iostat == 0 ) t%changed = trim(line)
+
+    close( u )
+
+    ! Remove temp file
+    call execute_command_line( 'rm -f '//trim(tmpfile), wait=.true. )
+
+  end subroutine get_file_times
 
 end module
