@@ -271,9 +271,9 @@ contains
     else
       print '(a,g0.2,a$)', ', Size: ', real(this%size) / GiB, 'GiB'
     end if
-    print '(a)', ', Path: '//trim(this%path)
-    print '(a)', ', Accessed: '//trim(this%accessed)
-    print '(a)', ', Modified: '//trim(this%modified)
+    print '(a$)', ', Path: '//trim(this%path)
+    print '(a$)', ', Accessed: '//trim(this%accessed)
+    print '(a$)', ', Modified: '//trim(this%modified)
     print '(a)', ', Changed:  '//trim(this%changed)
   end subroutine
 
