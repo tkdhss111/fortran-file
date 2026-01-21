@@ -542,7 +542,7 @@ contains
     image_ = 1
     if ( present(image) ) image_ = image
 
-    write( tmpfile, '(a,i0)' ) './tmp', image_
+    write( tmpfile, '(a,i0)' ) '/tmp/fortran-file-tmp', image_
     write( cmd, '(a)' ) 'curl -sI '//trim(this%path)//' > '//trim(tmpfile)
 
     call exec( cmd )
