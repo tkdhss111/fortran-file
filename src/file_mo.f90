@@ -346,7 +346,7 @@ contains
     logical         :: fullpath_
     character(1000) :: dir_, pattern_, ignore_, maxdepth_
     character(1)    :: type_
-    character(1000) :: list_fnms = 'filelist', fno
+    character(1000) :: list_fnms = '/tmp/filelist', fno
     character(1000) :: command, cmdmsg, filelist
     character(1000) :: path, pwd
     character(30), allocatable :: patterns(:), ignores(:)
