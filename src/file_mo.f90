@@ -459,8 +459,7 @@ contains
 
     if ( exitstat /= 0 ) then
       write( *, * ) '*** Warning: No file found in the search directory: '//trim(dir_)
-      allocate( files(1) )
-      files(1)%path = 'NA'
+      allocate( files(0) )
       return
     end if
 
