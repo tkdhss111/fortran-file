@@ -129,10 +129,10 @@ contains
     else
       if ( from%exist ) then
         if ( need_iconv ) then
-          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure '// &
+          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 3 --retry-delay 5 --retry-connrefused --connect-timeout 30 '// &
                 trim(from%path)//' | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > '//trim(to%path)
         else
-          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure '// &
+          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 3 --retry-delay 5 --retry-connrefused --connect-timeout 30 '// &
                 trim(from%path)//' > '//trim(to%path)
         end if
       else
