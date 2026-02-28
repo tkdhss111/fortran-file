@@ -105,16 +105,17 @@ contains
       call exec( 'rm -f '//trim(this%path) )
       this%exist = .false.
     else
-      error stop '*** Error: Can not remove file in remote'
+      stop '*** Error: Can not remove file in remote'
     end if
   end subroutine
 
-  subroutine cp ( from, to )
+  subroutine cp ( from, to, stat )
 
-    class(file_ty), intent(inout) :: from
-    type(file_ty),  intent(inout) :: to
-    character(:), allocatable     :: cmd
-    logical                       :: need_iconv
+    class(file_ty), intent(inout)       :: from
+    type(file_ty),  intent(inout)       :: to
+    integer,        intent(out), optional :: stat
+    character(:), allocatable           :: cmd
+    logical                             :: need_iconv
 
     need_iconv = from%encoding /= '' .and. to%encoding /= '' .and. from%encoding /= to%encoding
 
@@ -136,11 +137,15 @@ contains
                 trim(from%path)//' > '//trim(to%path)
         end if
       else
-        error stop '*** Error: Remote file does not exist'
+        if ( present(stat) ) then; stat = 1; return; end if
+        stop '*** Error: Remote file does not exist'
       end if
     end if
     write( *, '(a)' ) 'Command: '//trim(cmd)
-    call exec( cmd )
+    call exec( cmd, stat )
+    if ( present(stat) ) then
+      if ( stat /= 0 ) return
+    end if
     to%exist = .true.
   end subroutine
 
@@ -152,7 +157,7 @@ contains
       from%exist = .false.
       to%exist   = .true.
     else
-      error stop '*** Error: Can not move file in remote'
+      stop '*** Error: Can not move file in remote'
     end if
   end subroutine
 
@@ -161,7 +166,7 @@ contains
     if ( this%local ) then
       call exec( 'mkdir -p '//trim(this%dir) )
     else
-      error stop '*** Error: Can not make directory in remote'
+      stop '*** Error: Can not make directory in remote'
     end if
   end subroutine
 
@@ -170,7 +175,7 @@ contains
     if ( this%local ) then
       call exec( 'rmdir '//trim(this%dir) )
     else
-      error stop '*** Error: Can not remove directory in remote'
+      stop '*** Error: Can not remove directory in remote'
     end if
   end subroutine
 
@@ -179,7 +184,7 @@ contains
     type(file_ty), allocatable    :: files(:)
     integer i
     if ( .not. this%local ) then
-      error stop '*** Error: Can not clear files in remote'
+      stop '*** Error: Can not clear files in remote'
     end if
     files = find( dir = this%dir )
     do i = 1, size(files)
@@ -187,8 +192,9 @@ contains
     end do
   end subroutine
 
-  subroutine exec ( command )
-    character(*), intent(in) :: command
+  subroutine exec ( command, stat )
+    character(*), intent(in)            :: command
+    integer,      intent(out), optional :: stat
     integer        :: cmdstat, exitstat
     character(255) :: cmdmsg
     call execute_command_line( &
@@ -198,16 +204,20 @@ contains
       cmdmsg   = cmdmsg )
     if ( cmdstat > 0 ) then
       write( *, '(a)' ) 'Command execution failed with error: '//trim(cmdmsg)
-      error stop cmdstat
+      if ( present(stat) ) then; stat = cmdstat; return; end if
+      stop cmdstat
     else if ( cmdstat < 0 ) then
       write( *, '(a)' ) 'Command execution not supported.'
-      error stop cmdstat
+      if ( present(stat) ) then; stat = cmdstat; return; end if
+      stop cmdstat
     else
       if ( exitstat /= 0 ) then
         write( *, '(a,i0)' ) 'Command completed with status ', exitstat
-        error stop exitstat
+        if ( present(stat) ) then; stat = exitstat; return; end if
+        stop exitstat
       end if
     end if
+    if ( present(stat) ) stat = 0
   end subroutine
 
   subroutine init_file ( this, path, content, encoding )
@@ -444,7 +454,7 @@ contains
     end if
 
     if ( index( command, '~' ) > 0 ) then
-      error stop '*** Error: Do not include ~ as home directory in path.'
+      stop '*** Error: Do not include ~ as home directory in path.'
     end if
 
     write( *, * ) 'Command: ', trim(command)
@@ -495,7 +505,7 @@ contains
     end if
 
     if ( exitstat /= 0 ) then
-      error stop '*** Error: Function "find" is not thread safe. Consider using "image" option.'
+      stop '*** Error: Function "find" is not thread safe. Consider using "image" option.'
     end if
 
     write( *, * ) repeat( '-', 79 )
@@ -544,7 +554,11 @@ contains
     write( tmpfile, '(a,i0)' ) '/tmp/fortran-file-tmp', image_
     write( cmd, '(a)' ) 'curl -sI '//trim(this%path)//' > '//trim(tmpfile)
 
-    call exec( cmd )
+    call exec( cmd, stat = iostat )
+    if ( iostat /= 0 ) then
+      this%exist = .false.
+      return
+    end if
 
     open( newunit = u, file = tmpfile, status = 'old' )
 
