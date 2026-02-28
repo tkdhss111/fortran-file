@@ -6,7 +6,7 @@ module file_mo
   private
   public :: file_ty
   public :: hostname, dirname, filename, basename, extname, schemename
-  public :: find, touch, rm, cp, mv
+  public :: find, touch, rm, cp, cp_with_retry, mv
   public :: mkdir, rmdir, cldir
   public :: KiB, MiB, GiB
 
@@ -130,10 +130,10 @@ contains
     else
       if ( from%exist ) then
         if ( need_iconv ) then
-          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 3 --retry-delay 5 --retry-connrefused --connect-timeout 10 '// &
+          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 --max-time 60 '// &
                 trim(from%path)//' | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > '//trim(to%path)
         else
-          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 3 --retry-delay 5 --retry-connrefused --connect-timeout 10 '// &
+          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 --max-time 60 '// &
                 trim(from%path)//' > '//trim(to%path)
         end if
       else
@@ -147,6 +147,25 @@ contains
       if ( stat /= 0 ) return
     end if
     to%exist = .true.
+  end subroutine
+
+  subroutine cp_with_retry ( from, to, max_retries, wait_sec, stat )
+
+    class(file_ty), intent(inout) :: from
+    type(file_ty),  intent(inout) :: to
+    integer,        intent(in)    :: max_retries, wait_sec
+    integer,        intent(out)   :: stat
+    integer :: attempt
+
+    do attempt = 1, max_retries
+      call cp( from, to, stat )
+      if ( stat == 0 ) return
+      write( *, '(a,i0,a,i0,a,i0,a)' ) &
+        '*** Warning: cp failed (attempt ', attempt, '/', max_retries, &
+        '), waiting ', wait_sec, 's...'
+      if ( attempt < max_retries ) call sleep( wait_sec )
+    end do
+
   end subroutine
 
   subroutine mv ( from, to )
