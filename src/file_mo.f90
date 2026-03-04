@@ -6,7 +6,7 @@ module file_mo
   private
   public :: file_ty
   public :: hostname, dirname, filename, basename, extname, schemename
-  public :: find, touch, rm, cp, cp_with_retry, mv
+  public :: find, touch, rm, cp, mv
   public :: mkdir, rmdir, cldir
   public :: KiB, MiB, GiB
 
@@ -89,6 +89,16 @@ module file_mo
       character(kind=c_char), intent(out) :: name(*)
       integer(c_size_t), value            :: namelen
     end function
+
+    integer(c_int) function c_mkstemp( template ) bind(C, name="mkstemp")
+      import :: c_char, c_int
+      character(kind=c_char), intent(inout) :: template(*)
+    end function
+
+    integer(c_int) function c_close( fd ) bind(C, name="close")
+      import :: c_int
+      integer(c_int), value :: fd
+    end function
   end interface
 
 contains
@@ -109,13 +119,18 @@ contains
     end if
   end subroutine
 
-  subroutine cp ( from, to, stat )
+  subroutine cp ( from, to, stat, max_retries, wait_sec )
 
-    class(file_ty), intent(inout)       :: from
-    type(file_ty),  intent(inout)       :: to
+    class(file_ty), intent(inout)        :: from
+    type(file_ty),  intent(inout)        :: to
     integer,        intent(out), optional :: stat
-    character(:), allocatable           :: cmd
-    logical                             :: need_iconv
+    integer,        intent(in),  optional :: max_retries, wait_sec
+    character(:), allocatable            :: cmd
+    logical                              :: need_iconv
+    integer                              :: max_retries_, wait_sec_, attempt, stat_
+
+    max_retries_ = 1;  if ( present(max_retries) ) max_retries_ = max_retries
+    wait_sec_    = 30; if ( present(wait_sec)    ) wait_sec_    = wait_sec
 
     need_iconv = from%encoding /= '' .and. to%encoding /= '' .and. from%encoding /= to%encoding
 
@@ -142,30 +157,23 @@ contains
       end if
     end if
     write( *, '(a)' ) 'Command: '//trim(cmd)
-    call exec( cmd, stat )
-    if ( present(stat) ) then
-      if ( stat /= 0 ) return
-    end if
-    to%exist = .true.
-  end subroutine
 
-  subroutine cp_with_retry ( from, to, max_retries, wait_sec, stat )
-
-    class(file_ty), intent(inout) :: from
-    type(file_ty),  intent(inout) :: to
-    integer,        intent(in)    :: max_retries, wait_sec
-    integer,        intent(out)   :: stat
-    integer :: attempt
-
-    do attempt = 1, max_retries
-      call cp( from, to, stat )
-      if ( stat == 0 ) return
-      write( *, '(a,i0,a,i0,a,i0,a)' ) &
-        '*** Warning: cp failed (attempt ', attempt, '/', max_retries, &
-        '), waiting ', wait_sec, 's...'
-      if ( attempt < max_retries ) call sleep( wait_sec )
+    do attempt = 1, max_retries_
+      call exec( cmd, stat_ )
+      if ( stat_ == 0 ) exit
+      if ( attempt < max_retries_ ) then
+        write( *, '(a,i0,a,i0,a,i0,a)' ) &
+          '*** Warning: cp failed (attempt ', attempt, '/', max_retries_, &
+          '), waiting ', wait_sec_, 's...'
+        call sleep( wait_sec_ )
+      end if
     end do
 
+    if ( present(stat) ) then
+      stat = stat_
+      if ( stat_ /= 0 ) return
+    end if
+    to%exist = .true.
   end subroutine
 
   subroutine mv ( from, to )
@@ -375,14 +383,13 @@ contains
     logical         :: fullpath_
     character(1000) :: dir_, pattern_, ignore_, maxdepth_
     character(1)    :: type_
-    character(1000) :: list_fnms = '/tmp/filelist', fno
     character(1000) :: command, cmdmsg, filelist
     character(1000) :: path, pwd
     character(30), allocatable :: patterns(:), ignores(:)
+    character(len=24) :: template
+    integer(c_int) :: fd, rc
     integer :: cmdstat, exitstat
-    integer :: image_
     integer :: i, u, n, nrows, nors
-    logical :: exist
 
     write( *, * ) repeat( '-', 79 )
 
@@ -412,9 +419,6 @@ contains
 
     type_ = 'f'
     if ( present(type) ) type_ = type
-
-    image_ = 1
-    if ( present(image) ) image_ = image
 
     ! Search patterns
     nors = count_ors( pattern_ )
@@ -452,13 +456,17 @@ contains
       ignore_ = ' -and ! -iname "'//trim(ignore_)//'"'
     end if
 
-    do
-      write( fno, '(i0)' ) image_
-      filelist = trim(list_fnms)//trim(fno)
-      inquire( file = filelist, exist = exist )
-      if ( .not. exist ) exit
-      image_ = image_ + 1
-    end do
+    ! Create temp file atomically via mkstemp (no TOCTOU race)
+    template = '/tmp/filelist_XXXXXX' // c_null_char
+    fd = c_mkstemp( template )
+    if ( fd < 0 ) then
+      write( *, * ) '*** Error: mkstemp failed for temp file creation'
+      allocate( files(0) )
+      return
+    end if
+    rc = c_close( fd )
+    ! Extract path (strip C null terminator)
+    filelist = template(1:index(template, c_null_char) - 1)
 
     if ( fullpath_ ) then
       command = 'find "'//trim(dir_)//'"'//trim(maxdepth_)// &
@@ -483,12 +491,15 @@ contains
 
     if ( cmdstat /= 0 ) then
       write( *, * ) trim(cmdmsg)
+      allocate( files(0) )
+      call delete_tmpfile( filelist )
       return
     end if
 
     if ( exitstat /= 0 ) then
       write( *, * ) '*** Warning: No file found in the search directory: '//trim(dir_)
       allocate( files(0) )
+      call delete_tmpfile( filelist )
       return
     end if
 
@@ -515,21 +526,22 @@ contains
       call files(i)%init( files(i)%path )
     end do
 
-    call execute_command_line( command = 'rm '//trim(filelist), &
-      exitstat = exitstat, cmdstat = cmdstat, cmdmsg = cmdmsg )
-
-    if ( cmdstat /= 0 ) then
-      write( *, * ) trim(cmdmsg)
-      return
-    end if
-
-    if ( exitstat /= 0 ) then
-      stop '*** Error: Function "find" is not thread safe. Consider using "image" option.'
-    end if
+    call delete_tmpfile( filelist )
 
     write( *, * ) repeat( '-', 79 )
 
   end function
+
+  subroutine delete_tmpfile ( path )
+    character(*), intent(in) :: path
+    integer :: u
+    logical :: exist
+    inquire( file = path, exist = exist )
+    if ( exist ) then
+      open( newunit = u, file = path, status = 'old' )
+      close( u, status = 'delete' )
+    end if
+  end subroutine
 
   pure elemental function count_ors ( line ) result ( n )
     character(*), intent(in) :: line
@@ -561,21 +573,29 @@ contains
   subroutine check_uri_file ( this, image )
     class(file_ty),    intent(inout) :: this
     integer, optional, intent(in)    :: image
-    integer        :: image_
     character(512) :: cmd
     character(256) :: line
+    character(30)  :: template
     character(256) :: tmpfile
+    integer(c_int) :: fd, rc
     integer        :: j, u, iostat
 
-    image_ = 1
-    if ( present(image) ) image_ = image
+    ! Create temp file atomically via mkstemp (no TOCTOU race)
+    template = '/tmp/curl_hdr_XXXXXX' // c_null_char
+    fd = c_mkstemp( template )
+    if ( fd < 0 ) then
+      this%exist = .false.
+      return
+    end if
+    rc = c_close( fd )
+    tmpfile = template(1:index(template, c_null_char) - 1)
 
-    write( tmpfile, '(a,i0)' ) '/tmp/fortran-file-tmp', image_
     write( cmd, '(a)' ) 'curl -sI '//trim(this%path)//' > '//trim(tmpfile)
 
     call exec( cmd, stat = iostat )
     if ( iostat /= 0 ) then
       this%exist = .false.
+      call delete_tmpfile( tmpfile )
       return
     end if
 
@@ -597,6 +617,7 @@ contains
     end do
 
     close( u )
+    call delete_tmpfile( tmpfile )
 
   end subroutine
 
