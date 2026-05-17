@@ -590,7 +590,21 @@ contains
     rc = c_close( fd )
     tmpfile = template(1:index(template, c_null_char) - 1)
 
-    write( cmd, '(a)' ) 'curl -sI '//trim(this%path)//' > '//trim(tmpfile)
+    ! HEAD probe with same robust flags as the downloader path (cp at line ~148):
+    !   --insecure         skip cert verification (Akamai-fronted hosts
+    !                      like Rikuden serve HTTP/2 with chains some
+    !                      container OS bundles don't recognize; the bare
+    !                      `curl -sI` was failing for Hokuriku only, causing
+    !                      the scraper to mark today.csv as missing all day
+    !                      on 2026-05-17 despite the URL serving HTTP/2 200)
+    !   --location         follow any redirects
+    !   --retry 3 ...      smooth over transient network blips
+    !   2>&1               keep stderr in the probe file so future probe
+    !                      failures are grep-able
+    write( cmd, '(a)' ) 'curl -sI --location --insecure --show-error '//&
+                        '--connect-timeout 30 --max-time 60 '//&
+                        '--retry 3 --retry-delay 5 --retry-all-errors '//&
+                        trim(this%path)//' > '//trim(tmpfile)//' 2>&1'
 
     call exec( cmd, stat = iostat )
     if ( iostat /= 0 ) then
