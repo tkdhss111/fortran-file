@@ -7,6 +7,7 @@ module file_mo
   public :: file_ty
   public :: hostname, dirname, filename, basename, extname, schemename
   public :: find, touch, rm, cp, mv
+  public :: atomic_commit
   public :: mkdir, rmdir, cldir
   public :: KiB, MiB, GiB
 
@@ -186,6 +187,58 @@ contains
     else
       stop '*** Error: Can not move file in remote'
     end if
+  end subroutine
+
+  !===========================================================
+  ! atomic_commit
+  !
+  ! Atomically publish a temp file as its final path. Caller writes
+  ! to <tmp_path> in the SAME directory as <final_path> (guarantees
+  ! same filesystem so mv uses POSIX rename(2), which is atomic; any
+  ! reader sees either the old final_path or the new one, never a
+  ! partial state).
+  !
+  ! Typical use (DuckDB COPY-TO-parquet, prevents concurrent-reader
+  ! TProtocolException from partial writes):
+  !
+  !   call execute_command_line( &
+  !     "duckdb -c ""COPY (...) TO '"//x//".tmp' (FORMAT PARQUET)""" )
+  !   call atomic_commit( x//'.tmp', x, min_size=1024_8 )
+  !
+  ! For plain non-atomic move/copy use mv/cp file_ty methods instead.
+  !===========================================================
+  subroutine atomic_commit ( tmp_path, final_path, min_size, stat )
+    character(*),         intent(in)  :: tmp_path
+    character(*),         intent(in)  :: final_path
+    integer(8), optional, intent(in)  :: min_size   ! reject if .tmp shorter (truncation guard)
+    integer,    optional, intent(out) :: stat       ! 0 success
+    integer(8) :: sz
+    integer    :: stat_
+    logical    :: exists
+
+    inquire( file = tmp_path, exist = exists, size = sz )
+    if ( .not. exists ) then
+      write( *, '(a)' ) '*** Error: atomic_commit: tmp not found: '//tmp_path
+      if ( present(stat) ) then; stat = 2; return; end if
+      stop 2
+    end if
+
+    if ( present(min_size) ) then
+      if ( sz < min_size ) then
+        write( *, '(a,i0,a,i0,a)' ) &
+          '*** Error: atomic_commit: tmp size ', sz, ' < min_size ', min_size, &
+          ' — leaving '//tmp_path//' for inspection'
+        if ( present(stat) ) then; stat = 3; return; end if
+        stop 3
+      end if
+    end if
+
+    ! mv -f → POSIX rename(2) when same FS (atomic).
+    ! Cross-FS would fall back to copy+unlink (NOT atomic) — caller
+    ! is responsible for keeping tmp_path in the same directory as
+    ! final_path to keep this guarantee.
+    call exec( 'mv -f -- '//tmp_path//' '//final_path, stat_ )
+    if ( present(stat) ) stat = stat_
   end subroutine
 
   subroutine mkdir ( this )
