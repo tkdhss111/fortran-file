@@ -146,10 +146,10 @@ contains
     else
       if ( from%exist ) then
         if ( need_iconv ) then
-          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 --max-time 60 '// &
+          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 60 '// &
                 trim(from%path)//' | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > '//trim(to%path)
         else
-          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 --max-time 60 '// &
+          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 60 '// &
                 trim(from%path)//' > '//trim(to%path)
         end if
       else
@@ -656,7 +656,7 @@ contains
     !                      failures are grep-able
     write( cmd, '(a)' ) 'curl -sI --location --insecure --show-error '//&
                         '--connect-timeout 30 --max-time 60 '//&
-                        '--retry 3 --retry-delay 5 --retry-all-errors '//&
+                        '--retry 3 --retry-delay 5 '//&
                         trim(this%path)//' > '//trim(tmpfile)//' 2>&1'
 
     call exec( cmd, stat = iostat )
