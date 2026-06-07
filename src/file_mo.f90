@@ -146,8 +146,14 @@ contains
     else
       if ( from%exist ) then
         if ( need_iconv ) then
-          cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 60 '// &
-                trim(from%path)//' | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > '//trim(to%path)
+          ! Wrap in bash -c with PIPESTATUS so curl's exit code propagates
+          ! through the pipe (default shell semantics return iconv's exit,
+          ! which masks curl's 22 = HTTP error and breaks the 4xx fast-fail
+          ! logic below).
+          cmd = 'bash -c '''//&
+                'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 60 '//&
+                trim(from%path)//' | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > '//trim(to%path)//&
+                '; exit ${PIPESTATUS[0]}'''
         else
           cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 60 '// &
                 trim(from%path)//' > '//trim(to%path)
@@ -162,6 +168,15 @@ contains
     do attempt = 1, max_retries_
       call exec( cmd, stat_ )
       if ( stat_ == 0 ) exit
+      ! curl exit 22 = HTTP 4xx/5xx (--fail-with-body). curl's built-in
+      ! --retry 5 --retry-delay 10 already exhausted retries for transient
+      ! HTTP errors (408, 429, 5xx); a stat_==22 reaching us means a
+      ! permanent failure (404, 403, 410, ...). Skip the outer retry to
+      ! avoid the ~30s/404 stall pattern that broke last night's
+      ! tkd-02-area-balance backfill.
+      ! Transient curl exit codes (6=DNS, 7=connect, 28=timeout, 56=recv
+      ! failure, etc.) still hit the outer retry below.
+      if ( stat_ == 22 ) exit
       if ( attempt < max_retries_ ) then
         write( *, '(a,i0,a,i0,a,i0,a)' ) &
           '*** Warning: cp failed (attempt ', attempt, '/', max_retries_, &
