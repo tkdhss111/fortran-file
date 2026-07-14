@@ -9,6 +9,7 @@ module file_mo
   public :: find, touch, rm, cp, mv
   public :: atomic_commit
   public :: mkdir, rmdir, cldir
+  public :: cp_path, mv_path, rm_path, mkdir_path   ! path-string convenience wrappers
   public :: KiB, MiB, GiB
 
   type t_ty
@@ -810,5 +811,45 @@ contains
     t%changed  = unix_to_datetime( stat_buf%st_ctime )
 
   end subroutine
+
+  !===========================================================
+  ! Path-string convenience wrappers
+  !
+  ! cp/mv/rm/mkdir take file_ty; these accept plain path strings
+  ! for the common local-file case, so callers don't have to build
+  ! a file_ty at each site. Local files only (this is the case that
+  ! motivated them). For remote/encoded copies, use cp/mv directly.
+  !===========================================================
+  subroutine cp_path ( from, to, stat, max_retries, wait_sec )
+    character(*), intent(in)            :: from, to
+    integer, intent(out), optional      :: stat
+    integer, intent(in),  optional      :: max_retries, wait_sec
+    type(file_ty) :: a, b
+    a%path = from ; a%local = .true.
+    b%path = to
+    call cp ( a, b, stat, max_retries, wait_sec )
+  end subroutine cp_path
+
+  subroutine mv_path ( from, to )
+    character(*), intent(in) :: from, to
+    type(file_ty) :: a, b
+    a%path = from ; a%local = .true.
+    b%path = to
+    call mv ( a, b )
+  end subroutine mv_path
+
+  subroutine rm_path ( path )
+    character(*), intent(in) :: path
+    type(file_ty) :: f
+    f%path = path ; f%local = .true.
+    call rm ( f )
+  end subroutine rm_path
+
+  subroutine mkdir_path ( path )
+    character(*), intent(in) :: path
+    type(file_ty) :: f
+    f%dir = path ; f%local = .true.
+    call mkdir ( f )
+  end subroutine mkdir_path
 
 end module
