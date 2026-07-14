@@ -255,6 +255,20 @@ contains
     ! final_path to keep this guarantee.
     call exec( 'mv -f -- '//tmp_path//' '//final_path, stat_ )
     if ( present(stat) ) stat = stat_
+
+    ! Publish _SUCCESS marker in the same directory. Downstream consumers
+    ! can stat its mtime as a "producer finished publishing" signal that
+    ! does not require parsing the file content. Best-effort — a touch
+    ! failure does not abort the publish. Hadoop convention; see
+    ! refresh-daily.sh gate logic for the consumer side.
+    if ( stat_ == 0 ) then
+      block
+        integer :: islash
+        islash = index( final_path, '/', back = .true. )
+        if ( islash > 0 ) call exec( &
+          'touch -- "'//final_path(1:islash)//'_SUCCESS"' )
+      end block
+    end if
   end subroutine
 
   subroutine mkdir ( this )
