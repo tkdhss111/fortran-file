@@ -39,10 +39,10 @@ module file_mo
     procedure :: init  => init_file
     procedure :: print => print_file
     procedure :: touch
-    procedure :: rm
-    procedure :: cp
-    procedure :: mv
-    procedure :: mkdir
+    procedure :: rm    => rm_file
+    procedure :: cp    => cp_file
+    procedure :: mv    => mv_file
+    procedure :: mkdir => mkdir_file
     procedure :: rmdir
     procedure :: cldir
 
@@ -103,6 +103,13 @@ module file_mo
     end function
   end interface
 
+  ! Generic overloads: rm/cp/mv/mkdir accept EITHER a file_ty OR a path string.
+  ! (The *_path wrappers remain public but are deprecated in favour of these.)
+  interface rm    ; module procedure rm_file,    rm_path    ; end interface
+  interface cp    ; module procedure cp_file,    cp_path    ; end interface
+  interface mv    ; module procedure mv_file,    mv_path    ; end interface
+  interface mkdir ; module procedure mkdir_file, mkdir_path ; end interface
+
 contains
 
   subroutine touch ( this )
@@ -111,7 +118,7 @@ contains
     this%exist = .true.
   end subroutine
 
-  subroutine rm ( this )
+  subroutine rm_file ( this )
     class(file_ty), intent(inout) :: this
     if ( this%local ) then
       call exec( 'rm -f '//trim(this%path) )
@@ -121,7 +128,7 @@ contains
     end if
   end subroutine
 
-  subroutine cp ( from, to, stat, max_retries, wait_sec )
+  subroutine cp_file ( from, to, stat, max_retries, wait_sec )
 
     class(file_ty), intent(inout)        :: from
     type(file_ty),  intent(inout)        :: to
@@ -193,7 +200,7 @@ contains
     to%exist = .true.
   end subroutine
 
-  subroutine mv ( from, to )
+  subroutine mv_file ( from, to )
     class(file_ty), intent(inout) :: from
     type(file_ty),  intent(inout) :: to
     if ( from%local ) then
@@ -271,7 +278,7 @@ contains
     end if
   end subroutine
 
-  subroutine mkdir ( this )
+  subroutine mkdir_file ( this )
     class(file_ty), intent(inout) :: this
     if ( this%local ) then
       call exec( 'mkdir -p '//trim(this%dir) )
