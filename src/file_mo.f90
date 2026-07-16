@@ -8,7 +8,7 @@ module file_mo
   public :: hostname, dirname, filename, basename, extname, schemename
   public :: find, touch, rm, cp, mv
   public :: atomic_commit
-  public :: mkdir, rmdir, cldir
+  public :: mkdir, rmdir, cldir, rmtree
   public :: cp_path, mv_path, rm_path, mkdir_path   ! path-string convenience wrappers
   public :: KiB, MiB, GiB
 
@@ -461,7 +461,7 @@ contains
     end if
   end function
 
-  function find ( dir, pattern, ignore, maxdepth, fullpath, type, image ) result ( files )
+  function find ( dir, pattern, ignore, maxdepth, fullpath, type, image, verbose, follow ) result ( files )
     type(file_ty), allocatable         :: files(:)
     character(*), intent(in), optional :: dir
     character(*), intent(in), optional :: pattern, ignore
@@ -469,10 +469,13 @@ contains
     integer,      intent(in), optional :: maxdepth
     integer,      intent(in), optional :: image
     logical,      intent(in), optional :: fullpath
+    logical,      intent(in), optional :: verbose   ! .false. = quiet; default .true. = legacy debug prints
+    logical,      intent(in), optional :: follow    ! .true. = -xtype (match symlinks-to-<type>, like ls)
 
-    logical         :: fullpath_
+    logical         :: fullpath_, verbose_, follow_
     character(1000) :: dir_, pattern_, ignore_, maxdepth_
     character(1)    :: type_
+    character(6)    :: type_flag
     character(1000) :: command, cmdmsg, filelist
     character(1000) :: path, pwd
     character(30), allocatable :: patterns(:), ignores(:)
@@ -481,7 +484,10 @@ contains
     integer :: cmdstat, exitstat
     integer :: i, u, n, nrows, nors
 
-    write( *, * ) repeat( '-', 79 )
+    verbose_ = .true.  ; if ( present(verbose) ) verbose_ = verbose
+    follow_  = .false. ; if ( present(follow)  ) follow_  = follow
+
+    if ( verbose_ ) write( *, * ) repeat( '-', 79 )
 
     if ( present(dir) ) then
       dir_ = trim(dir)
@@ -494,9 +500,11 @@ contains
     fullpath_ = .true.
     if ( present(fullpath) ) fullpath_ = fullpath
 
-    print '(a)', 'Search Directory: '//trim(dir_)
-    call get_environment_variable( 'PWD', pwd )
-    print '(a)', 'Current Directory: '//trim(pwd)
+    if ( verbose_ ) then
+      print '(a)', 'Search Directory: '//trim(dir_)
+      call get_environment_variable( 'PWD', pwd )
+      print '(a)', 'Current Directory: '//trim(pwd)
+    end if
 
     pattern_ = '*'
     if ( present(pattern) ) pattern_ = trim(pattern)
@@ -509,12 +517,14 @@ contains
 
     type_ = 'f'
     if ( present(type) ) type_ = type
+    type_flag = '-type'
+    if ( follow_ ) type_flag = '-xtype'   ! resolve symlinks; match those whose target is <type>
 
     ! Search patterns
     nors = count_ors( pattern_ )
 
     if ( nors > 0 ) then
-      write( *, * ) 'Number of patterns', nors
+      if ( verbose_ ) write( *, * ) 'Number of patterns', nors
       allocate( patterns(nors+1) )
       do i = 1, len_trim(pattern_)
         if ( pattern_(i:i) == '|' ) pattern_(i:i) = ','
@@ -532,7 +542,7 @@ contains
     nors = count_ors( ignore_ )
 
     if ( nors > 0 ) then
-      write( *, * ) 'Number of ignores', nors
+      if ( verbose_ ) write( *, * ) 'Number of ignores', nors
       allocate( ignores(nors+1) )
       do concurrent ( i = 1:len_trim(ignore_) )
         if ( ignore_(i:i) == '|' ) ignore_(i:i) = ','
@@ -560,12 +570,12 @@ contains
 
     if ( fullpath_ ) then
       command = 'find "'//trim(dir_)//'"'//trim(maxdepth_)// &
-                ' -type '//trim(type_)// &
+                ' '//trim(type_flag)//' '//trim(type_)// &
                 ' \( '//trim(pattern_)//trim(ignore_)//' \)'// &
                 '| sort -n > '//trim(filelist)
     else
       command = 'find "'//trim(dir_)//'"'//trim(maxdepth_)// &
-                ' -type '//trim(type_)// &
+                ' '//trim(type_flag)//' '//trim(type_)// &
                 ' \( '//trim(pattern_)//trim(ignore_)//' \)'// &
                 '| sort -n | xargs -n 1 basename > '//trim(filelist)
     end if
@@ -574,7 +584,7 @@ contains
       stop '*** Error: Do not include ~ as home directory in path.'
     end if
 
-    write( *, * ) 'Command: ', trim(command)
+    if ( verbose_ ) write( *, * ) 'Command: ', trim(command)
 
     call execute_command_line( command = command, &
       exitstat = exitstat, cmdstat = cmdstat, cmdmsg = cmdmsg )
@@ -587,7 +597,7 @@ contains
     end if
 
     if ( exitstat /= 0 ) then
-      write( *, * ) '*** Warning: No file found in the search directory: '//trim(dir_)
+      if ( verbose_ ) write( *, * ) '*** Warning: No file found in the search directory: '//trim(dir_)
       allocate( files(0) )
       call delete_tmpfile( filelist )
       return
@@ -595,19 +605,19 @@ contains
 
     open( newunit = u, file = filelist, status = 'old' )
     nrows = count_rows( u )
-    write( *, * ) 'Number of files/dirs found: ', nrows
+    if ( verbose_ ) write( *, * ) 'Number of files/dirs found: ', nrows
 
     allocate( files(nrows) )
     do i = 1, nrows
       read( u, '(a)' ) path
       files(i)%path = trim(path)
-      if ( type_ == 'f' ) then
+      if ( verbose_ .and. type_ == 'f' ) then
         print '(a,i0,a,a)', '    File #', i, ': ', trim(files(i)%path)
       end if
       if ( type_ == 'd' ) then
         n = len_trim(files(i)%path)
         if ( files(i)%path(n:n) /= '/' ) files(i)%path = trim(files(i)%path)//'/'
-        print '(a,i0,a,a)', '    Dir #', i, ': ', trim(files(i)%path)
+        if ( verbose_ ) print '(a,i0,a,a)', '    Dir #', i, ': ', trim(files(i)%path)
       end if
     end do
     close( u )
@@ -618,7 +628,7 @@ contains
 
     call delete_tmpfile( filelist )
 
-    write( *, * ) repeat( '-', 79 )
+    if ( verbose_ ) write( *, * ) repeat( '-', 79 )
 
   end function
 
@@ -865,6 +875,16 @@ contains
     f%path = path ; f%local = .true.
     call rm ( f )
   end subroutine rm_path
+
+  !===========================================================
+  ! Recursively remove a directory tree (rm -rf). Local only.
+  ! Safe when the path is missing (no error). rmdir removes only
+  ! an empty directory; this is the non-empty / whole-subtree case.
+  !===========================================================
+  subroutine rmtree ( path )
+    character(*), intent(in) :: path
+    call exec( 'rm -rf '//trim(path) )
+  end subroutine rmtree
 
   subroutine mkdir_path ( path )
     character(*), intent(in) :: path
