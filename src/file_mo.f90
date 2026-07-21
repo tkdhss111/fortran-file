@@ -200,14 +200,23 @@ contains
     to%exist = .true.
   end subroutine
 
-  subroutine mv_file ( from, to )
-    class(file_ty), intent(inout) :: from
-    type(file_ty),  intent(inout) :: to
+  subroutine mv_file ( from, to, stat )
+    class(file_ty),    intent(inout) :: from
+    type(file_ty),     intent(inout) :: to
+    integer, optional, intent(out)   :: stat   ! 0 = ok. When present, never aborts —
+                                               ! caller handles a failed move (e.g. a
+                                               ! source that vanished in a race).
+    integer :: stat_
     if ( from%local ) then
-      call exec( 'mv '//trim(from%path)//' '//trim(to%path) )
-      from%exist = .false.
-      to%exist   = .true.
+      call exec( 'mv '//trim(from%path)//' '//trim(to%path), stat_ )
+      if ( .not. present(stat) .and. stat_ /= 0 ) stop stat_   ! preserve abort-on-failure
+      if ( present(stat) ) stat = stat_
+      if ( stat_ == 0 ) then
+        from%exist = .false.
+        to%exist   = .true.
+      end if
     else
+      if ( present(stat) ) then ; stat = -1 ; return ; end if
       stop '*** Error: Can not move file in remote'
     end if
   end subroutine
@@ -861,12 +870,13 @@ contains
     call cp ( a, b, stat, max_retries, wait_sec )
   end subroutine cp_path
 
-  subroutine mv_path ( from, to )
-    character(*), intent(in) :: from, to
+  subroutine mv_path ( from, to, stat )
+    character(*),      intent(in)  :: from, to
+    integer, optional, intent(out) :: stat
     type(file_ty) :: a, b
     a%path = from ; a%local = .true.
     b%path = to
-    call mv ( a, b )
+    call mv ( a, b, stat )
   end subroutine mv_path
 
   subroutine rm_path ( path )
