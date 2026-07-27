@@ -29,6 +29,7 @@ module file_mo
     character(:), allocatable :: content  ! File content
     character(:), allocatable :: scheme   ! URI scheme {https, http, file}
     character(:), allocatable :: encoding ! File encoding
+    character(:), allocatable :: referer  ! HTTP Referer header for remote cp/probe ('' = none)
     character(1) :: type  = ''
     integer(8)   :: size  = 0
     logical      :: exist = .false.
@@ -134,7 +135,7 @@ contains
     type(file_ty),  intent(inout)        :: to
     integer,        intent(out), optional :: stat
     integer,        intent(in),  optional :: max_retries, wait_sec
-    character(:), allocatable            :: cmd
+    character(:), allocatable            :: cmd, referer_opt
     logical                              :: need_iconv
     integer                              :: max_retries_, wait_sec_, attempt, stat_
 
@@ -142,6 +143,13 @@ contains
     wait_sec_    = 30; if ( present(wait_sec)    ) wait_sec_    = wait_sec
 
     need_iconv = from%encoding /= '' .and. to%encoding /= '' .and. from%encoding /= to%encoding
+
+    ! Optional HTTP Referer (some servers gate downloads on it; '' = omit).
+    ! Double-quoted so it survives inside the single-quoted bash -c wrapper below.
+    referer_opt = ''
+    if ( allocated(from%referer) ) then
+      if ( len_trim(from%referer) > 0 ) referer_opt = '--referer "'//trim(from%referer)//'" '
+    end if
 
     if ( from%local ) then
       if ( need_iconv ) then
@@ -158,13 +166,15 @@ contains
           ! through the pipe (default shell semantics return iconv's exit,
           ! which masks curl's 22 = HTTP error and breaks the 4xx fast-fail
           ! logic below).
+          ! URL double-quoted: query strings ('&', '?') must not hit the shell bare
+          ! (an unquoted '&' backgrounds the command and truncates the URL).
           cmd = 'bash -c '''//&
                 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 60 '//&
-                trim(from%path)//' | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > '//trim(to%path)//&
+                referer_opt//'"'//trim(from%path)//'" | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > '//trim(to%path)//&
                 '; exit ${PIPESTATUS[0]}'''
         else
           cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 60 '// &
-                trim(from%path)//' > '//trim(to%path)
+                referer_opt//'"'//trim(from%path)//'" > '//trim(to%path)
         end if
       else
         if ( present(stat) ) then; stat = 1; return; end if
@@ -346,11 +356,12 @@ contains
     if ( present(stat) ) stat = 0
   end subroutine
 
-  subroutine init_file ( this, path, content, encoding )
+  subroutine init_file ( this, path, content, encoding, referer )
     class(file_ty),         intent(inout) :: this
     character(*), optional, intent(in)    :: path
     character(*), optional, intent(in)    :: content
     character(*), optional, intent(in)    :: encoding
+    character(*), optional, intent(in)    :: referer  ! HTTP Referer sent on remote probe/cp
     type(t_ty) :: t
 
     if ( present(content) ) then
@@ -362,6 +373,13 @@ contains
       this%encoding = trim(encoding)
     else
       this%encoding = ''
+    end if
+    ! Set BEFORE the scheme probe below so check_uri_file already sends it
+    ! (some servers gate content on Referer and answer HEAD differently without it).
+    if ( present(referer) ) then
+      this%referer = trim(referer)
+    else
+      this%referer = ''
     end if
     if ( present(path) ) then
       this%path = trim(path)
@@ -682,10 +700,11 @@ contains
   subroutine check_uri_file ( this, image )
     class(file_ty),    intent(inout) :: this
     integer, optional, intent(in)    :: image
-    character(512) :: cmd
+    character(768) :: cmd
     character(256) :: line
     character(30)  :: template
     character(256) :: tmpfile
+    character(:), allocatable :: referer_opt
     integer(c_int) :: fd, rc
     integer        :: j, u, iostat
 
@@ -710,10 +729,17 @@ contains
     !   --retry 3 ...      smooth over transient network blips
     !   2>&1               keep stderr in the probe file so future probe
     !                      failures are grep-able
+    ! Same optional Referer as the downloader path (servers that gate on it
+    ! may answer the HEAD probe differently without it).
+    referer_opt = ''
+    if ( allocated(this%referer) ) then
+      if ( len_trim(this%referer) > 0 ) referer_opt = '--referer "'//trim(this%referer)//'" '
+    end if
+    ! URL double-quoted — same reason as the downloader path (query-string '&').
     write( cmd, '(a)' ) 'curl -sI --location --insecure --show-error '//&
                         '--connect-timeout 30 --max-time 60 '//&
                         '--retry 3 --retry-delay 5 '//&
-                        trim(this%path)//' > '//trim(tmpfile)//' 2>&1'
+                        referer_opt//'"'//trim(this%path)//'" > '//trim(tmpfile)//' 2>&1'
 
     call exec( cmd, stat = iostat )
     if ( iostat /= 0 ) then
