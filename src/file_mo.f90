@@ -129,13 +129,20 @@ contains
     end if
   end subroutine
 
-  subroutine cp_file ( from, to, stat, max_retries, wait_sec )
+  subroutine cp_file ( from, to, stat, max_retries, wait_sec, post_data, cookie_jar )
 
     class(file_ty), intent(inout)        :: from
     type(file_ty),  intent(inout)        :: to
     integer,        intent(out), optional :: stat
     integer,        intent(in),  optional :: max_retries, wait_sec
-    character(:), allocatable            :: cmd, referer_opt
+    ! HTTP POST body (form-encoded). When present the remote transfer is a POST
+    ! instead of a GET — e.g. form-driven CSV exports (search params + CSRF token).
+    character(*),   intent(in),  optional :: post_data
+    ! curl cookie jar path (read AND write: -b/-c). Persists a session across
+    ! calls — fetch a form page first (session cookie + CSRF), then POST with
+    ! the same jar.
+    character(*),   intent(in),  optional :: cookie_jar
+    character(:), allocatable            :: cmd, referer_opt, http_opt
     logical                              :: need_iconv
     integer                              :: max_retries_, wait_sec_, attempt, stat_
 
@@ -150,6 +157,16 @@ contains
     if ( allocated(from%referer) ) then
       if ( len_trim(from%referer) > 0 ) referer_opt = '--referer "'//trim(from%referer)//'" '
     end if
+    ! POST body / cookie jar (double-quoted for the same reason as the Referer).
+    http_opt = ''
+    if ( present(post_data) ) then
+      if ( len_trim(post_data) > 0 ) http_opt = http_opt//'--data "'//trim(post_data)//'" '
+    end if
+    if ( present(cookie_jar) ) then
+      if ( len_trim(cookie_jar) > 0 ) &
+        http_opt = http_opt//'-b "'//trim(cookie_jar)//'" -c "'//trim(cookie_jar)//'" '
+    end if
+    referer_opt = referer_opt//http_opt
 
     if ( from%local ) then
       if ( need_iconv ) then
