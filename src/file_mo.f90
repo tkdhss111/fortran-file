@@ -208,7 +208,7 @@ contains
       ! HTTP errors (408, 429, 5xx); a stat_==22 reaching us means a
       ! permanent failure (404, 403, 410, ...). Skip the outer retry to
       ! avoid the ~30s/404 stall pattern that broke last night's
-      ! tkd-02-area-balance backfill.
+      ! bulk historical backfill.
       ! Transient curl exit codes (6=DNS, 7=connect, 28=timeout, 56=recv
       ! failure, etc.) still hit the outer retry below.
       if ( stat_ == 22 ) exit
