@@ -2,3 +2,8 @@ build/
 family_crest.png
 tags
 tmp1
+
+# Compiler build artifacts (module files, objects)
+*.mod
+*.smod
+*.o
