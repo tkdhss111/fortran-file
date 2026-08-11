@@ -199,6 +199,35 @@ basename ( './dir_test/dir_a/file_a1.txt' ) ! file_a1
 extname  ( './dir_test/dir_a/file_a1.txt' ) ! .txt
 ```
 
+## File timestamps
+
+`get_file_times` reads `stat(2)` and returns the three timestamps as
+`YYYY-MM-DD HH:MM:SS` strings.
+
+```{.fortran}
+use file_mo, only: t_ty, get_file_times
+
+type(t_ty) :: t
+call get_file_times( './dir_test/dir_a/file_a1.txt', t )
+
+t%accessed   ! atime
+t%modified   ! mtime
+t%changed    ! ctime
+```
+
+**The timestamps are UTC**, not local time. `st_atime`/`st_mtime`/`st_ctime` are
+seconds since the epoch and are converted arithmetically with no timezone
+applied, so on a UTC+9 host this reads 9 hours behind `stat(1)`, which prints
+local time. Convert in the caller if you need local — the result stays UTC so it
+does not depend on the environment it happens to run in.
+
+A missing or unreadable path is not an error — all three fields come back as
+empty strings, so the result can be written out verbatim without branching.
+
+`init_file` does **not** populate these. It fills `exist`/`size` with a cheap
+`INQUIRE`; adding a `stat(2)` there would charge every consumer an extra syscall
+per file, including `find` walking a whole tree. Ask for the times explicitly.
+
 ## Test Directory and Files
 
 dir_test\

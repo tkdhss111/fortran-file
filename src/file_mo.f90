@@ -5,6 +5,7 @@ module file_mo
 
   private
   public :: file_ty
+  public :: t_ty, get_file_times                    ! stat(2) timestamps: atime / mtime / ctime
   public :: hostname, dirname, filename, basename, extname, schemename
   public :: find, touch, rm, cp, mv
   public :: atomic_commit
@@ -870,6 +871,25 @@ contains
 
   !-----------------------------------------------------------------------------
   ! Get file times using C stat (works with gfortran and ifx)
+  !
+  !   type(t_ty) :: t
+  !   call get_file_times( '/path/to/file', t )
+  !   print *, t%modified          ! 'YYYY-MM-DD HH:MM:SS', '' if the stat failed
+  !
+  ! **The timestamps are UTC**, not local time. st_atime/st_mtime/st_ctime are
+  ! seconds since the epoch and are converted arithmetically, with no timezone
+  ! applied -- so on a UTC+9 host this reads 9 hours behind `stat(1)`, which
+  ! prints local time. Convert in the caller if you need local; this stays UTC so
+  ! the result does not depend on the environment it happens to run in.
+  !
+  ! A missing or unreadable path is NOT an error: all three fields come back as
+  ! empty strings, so a caller can emit them verbatim without branching.
+  !
+  ! Deliberately NOT called from init_file. init_file fills exist/size with a
+  ! cheap INQUIRE, and adding a stat(2) there would charge every consumer -- most
+  ! of which never look at the timestamps -- an extra syscall per file. `find`
+  ! walks whole trees through it, so that cost is not hypothetical. Ask for the
+  ! times explicitly when you want them.
   !-----------------------------------------------------------------------------
   subroutine get_file_times ( filepath, t )
     character(*), intent(in)  :: filepath
