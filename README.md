@@ -208,18 +208,31 @@ extname  ( './dir_test/dir_a/file_a1.txt' ) ! .txt
 use file_mo, only: t_ty, get_file_times
 
 type(t_ty) :: t
-call get_file_times( './dir_test/dir_a/file_a1.txt', t )
+call get_file_times( './dir_test/dir_a/file_a1.txt', t )                ! UTC
+call get_file_times( './dir_test/dir_a/file_a1.txt', t, local=.true. )  ! local
 
 t%accessed   ! atime
 t%modified   ! mtime
 t%changed    ! ctime
 ```
 
-**The timestamps are UTC**, not local time. `st_atime`/`st_mtime`/`st_ctime` are
-seconds since the epoch and are converted arithmetically with no timezone
-applied, so on a UTC+9 host this reads 9 hours behind `stat(1)`, which prints
-local time. Convert in the caller if you need local — the result stays UTC so it
-does not depend on the environment it happens to run in.
+**The default is UTC.** `st_atime`/`st_mtime`/`st_ctime` are seconds since the
+epoch, converted arithmetically with no timezone applied, so on a UTC+9 host the
+default reads 9 hours behind `stat(1)`, which prints local time.
+
+Pass `local=.true.` for `stat(1)`-style local time. That path uses
+`localtime_r(3)`, so it follows `TZ` (or `/etc/localtime`) and handles DST.
+**Do not add a fixed offset in the caller instead** — a hardcoded `+9` is not
+derived from anything, silently becomes wrong when `TZ` differs, and disagrees
+with every other tool on the machine while still looking plausible.
+
+Verified against `stat(1)` in three zones for the same file:
+
+| `TZ` | `local=.true.` | `stat(1)` |
+|---|---|---|
+| `Asia/Tokyo` | `2025-10-16 19:15:52` | `2025-10-16 19:15:52` |
+| `UTC` | `2025-10-16 10:15:52` | `2025-10-16 10:15:52` |
+| `America/New_York` | `2025-10-16 06:15:52` | `2025-10-16 06:15:52` |
 
 A missing or unreadable path is not an error — all three fields come back as
 empty strings, so the result can be written out verbatim without branching.

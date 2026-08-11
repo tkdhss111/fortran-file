@@ -57,6 +57,19 @@ module file_mo
   !-----------------------------------------------------------------------------
   ! C struct stat for Linux x86_64
   !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! struct tm (glibc). tm_gmtoff/tm_zone are GNU extensions and sit after the
+  ! nine standard ints; they are declared so the struct length matches what
+  ! localtime_r writes, even though only the date/time fields are read here.
+  !-----------------------------------------------------------------------------
+  type, bind(C) :: c_tm_t
+    integer(c_int)  :: tm_sec, tm_min, tm_hour
+    integer(c_int)  :: tm_mday, tm_mon, tm_year
+    integer(c_int)  :: tm_wday, tm_yday, tm_isdst
+    integer(c_long) :: tm_gmtoff
+    type(c_ptr)     :: tm_zone
+  end type
+
   type, bind(C) :: c_stat_t
     integer(c_long)  :: st_dev
     integer(c_long)  :: st_ino
@@ -86,6 +99,14 @@ module file_mo
       import :: c_char, c_int, c_stat_t
       character(kind=c_char), intent(in) :: path(*)
       type(c_stat_t), intent(out)        :: buf
+    end function
+
+    ! localtime_r(3): epoch -> broken-down LOCAL time, honouring TZ. Thread-safe
+    ! (localtime(3) returns a shared static buffer). Returns NULL on failure.
+    type(c_ptr) function c_localtime_r( timep, result ) bind(C, name="localtime_r")
+      import :: c_long, c_tm_t, c_ptr
+      integer(c_long), intent(in)  :: timep
+      type(c_tm_t),    intent(out) :: result
     end function
 
     integer(c_int) function c_gethostname( name, namelen ) bind(C, name="gethostname")
@@ -828,6 +849,28 @@ contains
   !-----------------------------------------------------------------------------
   ! Convert Unix timestamp to human readable string (YYYY-MM-DD HH:MM:SS)
   !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! epoch -> 'YYYY-MM-DD HH:MM:SS' in LOCAL time, via localtime_r(3).
+  !
+  ! Not pure: localtime_r reads the process timezone (TZ, else /etc/localtime).
+  ! That is the point -- it is what makes this correct anywhere, instead of a
+  ! caller adding a hardcoded offset that silently rots when TZ changes.
+  ! Returns '' if the conversion fails, matching unix_to_datetime's contract.
+  !-----------------------------------------------------------------------------
+  function unix_to_local_datetime ( unix_time ) result ( str )
+    integer(c_long), intent(in) :: unix_time
+    character(19) :: str
+    type(c_tm_t)  :: tmv
+    type(c_ptr)   :: res
+    res = c_localtime_r( unix_time, tmv )
+    if ( .not. c_associated( res ) ) then
+      str = ''
+      return
+    end if
+    write( str, '(I4,"-",I2.2,"-",I2.2," ",I2.2,":",I2.2,":",I2.2)' ) &
+      tmv%tm_year + 1900, tmv%tm_mon + 1, tmv%tm_mday, tmv%tm_hour, tmv%tm_min, tmv%tm_sec
+  end function
+
   pure function unix_to_datetime ( unix_time ) result ( str )
     integer(c_long), intent(in) :: unix_time
     character(19) :: str
@@ -873,14 +916,19 @@ contains
   ! Get file times using C stat (works with gfortran and ifx)
   !
   !   type(t_ty) :: t
-  !   call get_file_times( '/path/to/file', t )
+  !   call get_file_times( '/path/to/file', t )                ! UTC (default)
+  !   call get_file_times( '/path/to/file', t, local=.true. )  ! local, honours TZ
   !   print *, t%modified          ! 'YYYY-MM-DD HH:MM:SS', '' if the stat failed
   !
-  ! **The timestamps are UTC**, not local time. st_atime/st_mtime/st_ctime are
-  ! seconds since the epoch and are converted arithmetically, with no timezone
-  ! applied -- so on a UTC+9 host this reads 9 hours behind `stat(1)`, which
-  ! prints local time. Convert in the caller if you need local; this stays UTC so
-  ! the result does not depend on the environment it happens to run in.
+  ! **The default is UTC**, not local time: st_atime/st_mtime/st_ctime are seconds
+  ! since the epoch, converted arithmetically with no timezone applied, so on a
+  ! UTC+9 host the default reads 9 hours behind `stat(1)`, which prints local.
+  !
+  ! Pass local=.true. for `stat(1)`-style local time. That path goes through
+  ! localtime_r(3), so it follows TZ (or /etc/localtime) and handles DST -- do NOT
+  ! add a fixed offset in the caller instead. A hardcoded "+9" is not derived from
+  ! anything: it silently becomes wrong the moment TZ differs, and it disagrees
+  ! with every other tool on the box while looking plausible.
   !
   ! A missing or unreadable path is NOT an error: all three fields come back as
   ! empty strings, so a caller can emit them verbatim without branching.
@@ -891,13 +939,18 @@ contains
   ! walks whole trees through it, so that cost is not hypothetical. Ask for the
   ! times explicitly when you want them.
   !-----------------------------------------------------------------------------
-  subroutine get_file_times ( filepath, t )
+  subroutine get_file_times ( filepath, t, local )
     character(*), intent(in)  :: filepath
     type(t_ty),   intent(out) :: t
+    logical, intent(in), optional :: local   ! .true. = local time; default UTC
 
     type(c_stat_t) :: stat_buf
     integer(c_int) :: status
+    logical        :: use_local
     character(:), allocatable :: c_path
+
+    use_local = .false.
+    if ( present( local ) ) use_local = local
 
     c_path = trim(filepath) // c_null_char
     status = c_stat( c_path, stat_buf )
@@ -909,9 +962,15 @@ contains
       return
     end if
 
-    t%accessed = unix_to_datetime( stat_buf%st_atime )
-    t%modified = unix_to_datetime( stat_buf%st_mtime )
-    t%changed  = unix_to_datetime( stat_buf%st_ctime )
+    if ( use_local ) then
+      t%accessed = unix_to_local_datetime( stat_buf%st_atime )
+      t%modified = unix_to_local_datetime( stat_buf%st_mtime )
+      t%changed  = unix_to_local_datetime( stat_buf%st_ctime )
+    else
+      t%accessed = unix_to_datetime( stat_buf%st_atime )
+      t%modified = unix_to_datetime( stat_buf%st_mtime )
+      t%changed  = unix_to_datetime( stat_buf%st_ctime )
+    end if
 
   end subroutine
 
