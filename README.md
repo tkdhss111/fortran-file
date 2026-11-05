@@ -10,6 +10,7 @@ touch, cp, mv, rm, mkdir, rmdir, cldir, print and find
 - Can copy URI file to local via curl
 
 - Change file encoding with cp if encoding differs
+- Download with cp keeps the existing file on failure or an empty response (stat /= 0); it is replaced only by a non-empty download
 
 ## file_ty
 

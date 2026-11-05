@@ -164,7 +164,8 @@ contains
     ! calls — fetch a form page first (session cookie + CSRF), then POST with
     ! the same jar.
     character(*),   intent(in),  optional :: cookie_jar
-    character(:), allocatable            :: cmd, referer_opt, http_opt
+    character(:), allocatable            :: cmd, referer_opt, http_opt, part, commit
+    character(*), parameter              :: CP_EMPTY_BODY = '100'
     logical                              :: need_iconv
     integer                              :: max_retries_, wait_sec_, attempt, stat_
 
@@ -200,6 +201,12 @@ contains
       end if
     else
       if ( from%exist ) then
+        ! Download beside the destination and rename only a real, non-empty result: a shell redirect
+        ! truncates its target before curl runs, so a failed fetch would destroy the copy already there.
+        ! Exit CP_EMPTY_BODY when the transfer succeeded but produced no bytes.
+        part   = trim(to%path)//'.part.$$'
+        commit = 'if [ $s -eq 0 ] && [ -s "'//part//'" ]; then mv -f "'//part//'" "'//trim(to%path)//'" || s=1; '// &
+                 'else rm -f "'//part//'"; if [ $s -eq 0 ]; then s='//CP_EMPTY_BODY//'; fi; fi; exit $s'
         if ( need_iconv ) then
           ! Wrap in bash -c with PIPESTATUS so curl's exit code propagates
           ! through the pipe (default shell semantics return iconv's exit,
@@ -209,11 +216,11 @@ contains
           ! (an unquoted '&' backgrounds the command and truncates the URL).
           cmd = 'bash -c '''//&
                 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 60 '//&
-                referer_opt//'"'//trim(from%path)//'" | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > '//trim(to%path)//&
-                '; exit ${PIPESTATUS[0]}'''
+                referer_opt//'"'//trim(from%path)//'" | iconv -f '//trim(from%encoding)//' -t '//trim(to%encoding)//' > "'//part//'"'//&
+                '; s=${PIPESTATUS[0]}; '//commit//''''
         else
           cmd = 'curl --location --show-error --silent --fail-with-body --create-dirs --insecure --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 60 '// &
-                referer_opt//'"'//trim(from%path)//'" > '//trim(to%path)
+                referer_opt//'"'//trim(from%path)//'" > "'//part//'"; s=$?; '//commit
         end if
       else
         if ( present(stat) ) then; stat = 1; return; end if
