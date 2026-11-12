@@ -242,6 +242,34 @@ empty strings, so the result can be written out verbatim without branching.
 `INQUIRE`; adding a `stat(2)` there would charge every consumer an extra syscall
 per file, including `find` walking a whole tree. Ask for the times explicitly.
 
+## File locks
+
+`lock_path` takes an exclusive advisory lock (`flock(2)`) on a lock file and returns the
+fd that holds it; `unlock_path` releases it. Use it when two programs rewrite the same
+file with read -> write `.tmp` -> rename and must not interleave.
+
+```fortran
+integer :: fd, st
+call lock_path( dir//'/.write.lock', fd, stat=st, wait_s=60.0 )
+if ( st /= LOCK_ACQUIRED ) stop 'lock busy'
+! ... read the file, write file.tmp, rename it over the file ...
+call unlock_path( fd )
+```
+
+- The kernel releases the lock when the holder is gone (normal exit, `error stop`,
+  SIGKILL, OOM kill), so nothing has to clean up after a crash.
+- The fd is opened with `O_CLOEXEC`: child processes (`execute_command_line`, `mv`)
+  do not inherit it and cannot keep the lock alive.
+- Works across processes and containers that share the lock file's directory.
+- `wait_s` absent: wait indefinitely. Present: poll every 10 ms and give up with
+  `stat = LOCK_TIMEOUT` after that many seconds (`0` tries once). Without `stat`,
+  a failure stops the program.
+- Advisory: a writer that does not call `lock_path` is not held back. Do not nest
+  two `lock_path` calls on the same file in one process; the second will not be granted.
+- The lock file is created if missing and should never be deleted.
+
+Test: `test/lock_test.sh`.
+
 ## Test Directory and Files
 
 dir_test\

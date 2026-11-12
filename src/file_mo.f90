@@ -12,6 +12,8 @@ module file_mo
   public :: mkdir, rmdir, cldir, rmtree
   public :: cp_path, mv_path, rm_path, mkdir_path   ! path-string convenience wrappers
   public :: KiB, MiB, GiB
+  public :: lock_path, unlock_path                  ! advisory flock(2) lock held on an fd
+  public :: LOCK_ACQUIRED, LOCK_TIMEOUT, LOCK_UNOPENABLE, LOCK_FAILED
 
   type t_ty
     character(len=19) :: accessed = '' ! YYYY-MM-DD HH:MM:SS
@@ -124,7 +126,33 @@ module file_mo
       import :: c_int
       integer(c_int), value :: fd
     end function
+
+    integer(c_int) function c_open( path, flags, mode ) bind(C, name="open")
+      import :: c_char, c_int
+      character(kind=c_char), intent(in) :: path(*)
+      integer(c_int), value              :: flags, mode
+    end function
+
+    integer(c_int) function c_flock( fd, operation ) bind(C, name="flock")
+      import :: c_int
+      integer(c_int), value :: fd, operation
+    end function
+
+    integer(c_int) function c_usleep( usec ) bind(C, name="usleep")
+      import :: c_int
+      integer(c_int), value :: usec
+    end function
   end interface
+
+  ! lock_path results
+  integer, parameter :: LOCK_ACQUIRED   = 0   ! the caller holds the lock (fd >= 0)
+  integer, parameter :: LOCK_TIMEOUT    = 1   ! still held by someone else after wait_s
+  integer, parameter :: LOCK_UNOPENABLE = 2   ! the lock file could not be opened or created
+  integer, parameter :: LOCK_FAILED     = 3   ! flock(2) failed for another reason
+
+  ! Linux values (fixed ABI; Fortran cannot include the C headers that define them)
+  integer(c_int), parameter :: O_RDWR_ = 2_c_int, O_CREAT_ = 64_c_int, O_CLOEXEC_ = 524288_c_int, MODE_0644_ = 420_c_int
+  integer(c_int), parameter :: LOCK_EX_ = 2_c_int, LOCK_NB_ = 4_c_int, LOCK_UN_ = 8_c_int
 
   ! Generic overloads: rm/cp/mv/mkdir accept EITHER a file_ty OR a path string.
   ! (The *_path wrappers remain public but are deprecated in favour of these.)
@@ -1031,5 +1059,84 @@ contains
     f%dir = path ; f%local = .true.
     call mkdir ( f )
   end subroutine mkdir_path
+
+  !-----------------------------------------------------------------------------
+  ! lock_path / unlock_path — an exclusive advisory lock, flock(2), on a lock file.
+  !
+  ! The lock belongs to the kernel and to the open file description, so it is
+  ! released the moment its holder is gone: unlock_path, normal exit, error stop,
+  ! SIGKILL, OOM kill, container teardown. Nothing has to clean up after a crash,
+  ! which a "create the file exclusively" lock cannot offer.
+  !
+  ! Every process (or container sharing the directory) that opens the same file
+  ! and calls lock_path is serialised. Locks are advisory: a writer that does not
+  ! call lock_path is not stopped. Each call opens a new file description, so one
+  ! process calling lock_path twice on the same file blocks itself - do not nest.
+  ! The lock file is created if missing and is never removed (removing it while
+  ! another process waits on the old inode would let two holders in).
+  !
+  !   call lock_path( dir//'/.write.lock', fd, stat=st, wait_s=60.0 )
+  !   if ( st /= LOCK_ACQUIRED ) ...
+  !   ... read, write tmp, rename ...
+  !   call unlock_path( fd )
+  !
+  ! wait_s absent: wait as long as it takes. wait_s present: give up after that
+  ! many seconds (polled every 10 ms) with stat = LOCK_TIMEOUT; wait_s = 0 tries once.
+  ! Without stat, any failure stops the program.
+  !-----------------------------------------------------------------------------
+  subroutine lock_path ( path, fd, stat, wait_s )
+    character(*),   intent(in)  :: path
+    integer,        intent(out) :: fd
+    integer,        optional, intent(out) :: stat
+    real,           optional, intent(in)  :: wait_s
+    integer(c_int) :: cfd, r
+    integer        :: st
+    real           :: waited
+
+    fd = -1
+    ! O_CLOEXEC: a child started while the lock is held (execute_command_line, mv)
+    ! must not inherit the fd, or the lock outlives this process (measured: a sleep
+    ! child kept it after the parent was SIGKILLed).
+    cfd = c_open( trim(path)//c_null_char, ior(ior(O_RDWR_, O_CREAT_), O_CLOEXEC_), MODE_0644_ )
+    if ( cfd < 0 ) then
+      st = LOCK_UNOPENABLE
+    else if ( .not. present(wait_s) ) then
+      r = c_flock( cfd, LOCK_EX_ )
+      st = merge( LOCK_ACQUIRED, LOCK_FAILED, r == 0 )
+    else
+      waited = 0.0
+      do
+        r = c_flock( cfd, ior(LOCK_EX_, LOCK_NB_) )
+        if ( r == 0 ) then; st = LOCK_ACQUIRED; exit; end if
+        if ( waited >= wait_s ) then; st = LOCK_TIMEOUT; exit; end if
+        r = c_usleep( 10000_c_int )
+        waited = waited + 0.01
+      end do
+    end if
+
+    if ( st == LOCK_ACQUIRED ) then
+      fd = int(cfd)
+    else if ( cfd >= 0 ) then
+      r = c_close( cfd )
+    end if
+
+    if ( present(stat) ) then
+      stat = st
+    else if ( st /= LOCK_ACQUIRED ) then
+      write( *, '(a,i0,a)' ) '*** Error: lock_path: stat ', st, ' for '//trim(path)
+      error stop 1
+    end if
+  end subroutine lock_path
+
+  ! Release a lock taken by lock_path and close its fd. A negative fd is ignored,
+  ! so it is safe to call after a failed lock_path.
+  subroutine unlock_path ( fd )
+    integer, intent(inout) :: fd
+    integer(c_int) :: r
+    if ( fd < 0 ) return
+    r = c_flock( int(fd, c_int), LOCK_UN_ )
+    r = c_close( int(fd, c_int) )
+    fd = -1
+  end subroutine unlock_path
 
 end module
