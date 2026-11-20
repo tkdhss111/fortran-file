@@ -13,6 +13,7 @@ module file_mo
   public :: cp_path, mv_path, rm_path, mkdir_path   ! path-string convenience wrappers
   public :: KiB, MiB, GiB
   public :: lock_path, unlock_path                  ! advisory flock(2) lock held on an fd
+  public :: cp_skip_failed_hosts                    ! opt-in: cp gives up on a host that is down
   public :: LOCK_ACQUIRED, LOCK_TIMEOUT, LOCK_UNOPENABLE, LOCK_FAILED
 
   type t_ty
@@ -154,6 +155,13 @@ module file_mo
   integer(c_int), parameter :: O_RDWR_ = 2_c_int, O_CREAT_ = 64_c_int, O_CLOEXEC_ = 524288_c_int, MODE_0644_ = 420_c_int
   integer(c_int), parameter :: LOCK_EX_ = 2_c_int, LOCK_NB_ = 4_c_int, LOCK_UN_ = 8_c_int
 
+  ! cp_skip_failed_hosts state (opt-in; off by default, so cp behaves as before)
+  integer, parameter :: CP_MAX_DOWN_HOSTS = 64
+  logical            :: cp_skip_hosts_ = .false.
+  integer            :: cp_n_down_ = 0
+  character(256)     :: cp_down_host_(CP_MAX_DOWN_HOSTS) = ''
+  integer            :: cp_down_stat_(CP_MAX_DOWN_HOSTS) = 0
+
   ! Generic overloads: rm/cp/mv/mkdir accept EITHER a file_ty OR a path string.
   ! (The *_path wrappers remain public but are deprecated in favour of these.)
   interface rm    ; module procedure rm_file,    rm_path    ; end interface
@@ -255,6 +263,19 @@ contains
         stop '*** Error: Remote file does not exist'
       end if
     end if
+    ! cp_skip_failed_hosts: a host that already failed at the connection level in this process is not
+    ! tried again; the call returns that failure at once. Only with stat present (a caller without stat
+    ! gets the old behaviour).
+    if ( cp_skip_hosts_ .and. present(stat) .and. .not. from%local ) then
+      stat_ = cp_down_stat( url_host(from%path) )
+      if ( stat_ /= 0 ) then
+        write( *, '(a,i0,a)' ) '*** Warning: cp skipped: host '//url_host(from%path)// &
+          ' failed earlier in this run (curl ', stat_, ') - '//trim(from%path)
+        stat = stat_
+        return
+      end if
+    end if
+
     write( *, '(a)' ) 'Command: '//trim(cmd)
 
     do attempt = 1, max_retries_
@@ -269,6 +290,12 @@ contains
       ! Transient curl exit codes (6=DNS, 7=connect, 28=timeout, 56=recv
       ! failure, etc.) still hit the outer retry below.
       if ( stat_ == 22 ) exit
+      ! With cp_skip_failed_hosts: a connection-level failure that survived curl's own retries means the
+      ! host is down. Do not retry it here, and skip the host for the rest of the process.
+      if ( cp_skip_hosts_ .and. .not. from%local .and. is_host_failure(stat_) ) then
+        call cp_mark_down( url_host(from%path), stat_ )
+        exit
+      end if
       if ( attempt < max_retries_ ) then
         write( *, '(a,i0,a,i0,a,i0,a)' ) &
           '*** Warning: cp failed (attempt ', attempt, '/', max_retries_, &
@@ -282,6 +309,67 @@ contains
       if ( stat_ /= 0 ) return
     end if
     to%exist = .true.
+  end subroutine
+
+  !-----------------------------------------------------------------------------
+  ! cp_skip_failed_hosts — opt-in fail-fast for downloads from a host that is down.
+  !
+  ! Off by default. When on, a remote cp (with stat present) whose curl exit is a
+  ! connection-level failure — 6 could not resolve host, 7 could not connect,
+  ! 28 timeout, 35 TLS handshake — after curl's own --retry is:
+  !   * not retried by cp's outer loop (max_retries), and
+  !   * remembered: every later cp from the same host in this process returns
+  !     that exit code at once, without running curl.
+  ! HTTP errors (22) are unchanged: they already stop the outer retry and do not
+  ! mark the host. A program that downloads many files per run from several hosts
+  ! uses this so one dead host costs one download, not one per file.
+  !
+  !   call cp_skip_failed_hosts( .true. )    ! once, at start
+  !   call cp_skip_failed_hosts( .false. )   ! turn off and forget the down hosts
+  !-----------------------------------------------------------------------------
+  subroutine cp_skip_failed_hosts ( on )
+    logical, intent(in) :: on
+    cp_skip_hosts_ = on
+    cp_n_down_     = 0
+  end subroutine
+
+  logical function is_host_failure ( curl_stat )
+    integer, intent(in) :: curl_stat
+    is_host_failure = curl_stat == 6 .or. curl_stat == 7 .or. curl_stat == 28 .or. curl_stat == 35
+  end function
+
+  ! Host part of a URL: scheme://[user@]host[:port]/... -> host[:port] ('' if not a URL).
+  ! The port is kept: a dead port must not block a working one on the same machine.
+  function url_host ( url ) result ( host )
+    character(*), intent(in)  :: url
+    character(:), allocatable :: host
+    integer :: i, j
+    i = index( url, '://' )
+    if ( i == 0 ) then; host = ''; return; end if
+    host = url(i+3:)
+    j = scan( host, '/?#' );  if ( j > 0 ) host = host(:j-1)
+    j = index( host, '@', back = .true. ); if ( j > 0 ) host = host(j+1:)
+  end function
+
+  integer function cp_down_stat ( host )
+    character(*), intent(in) :: host
+    integer :: i
+    cp_down_stat = 0
+    if ( len_trim(host) == 0 ) return
+    do i = 1, cp_n_down_
+      if ( trim(cp_down_host_(i)) == trim(host) ) then; cp_down_stat = cp_down_stat_(i); return; end if
+    end do
+  end function
+
+  subroutine cp_mark_down ( host, curl_stat )
+    character(*), intent(in) :: host
+    integer,      intent(in) :: curl_stat
+    if ( len_trim(host) == 0 .or. cp_down_stat(host) /= 0 .or. cp_n_down_ >= CP_MAX_DOWN_HOSTS ) return
+    cp_n_down_ = cp_n_down_ + 1
+    cp_down_host_(cp_n_down_) = host
+    cp_down_stat_(cp_n_down_) = curl_stat
+    write( *, '(a,i0,a)' ) '*** Warning: cp: host '//trim(host)//' is down (curl ', curl_stat, &
+      '); later downloads from it in this run are skipped'
   end subroutine
 
   subroutine mv_file ( from, to, stat )

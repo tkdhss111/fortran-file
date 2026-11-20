@@ -270,6 +270,26 @@ call unlock_path( fd )
 
 Test: `test/lock_test.sh`.
 
+## Skipping hosts that are down
+
+A program that downloads many files per run from several hosts can make `cp` give up on a
+host that is down, instead of waiting for every file:
+
+```fortran
+call cp_skip_failed_hosts( .true. )   ! once, at start (off by default)
+call cp( remote, local, stat=st, max_retries=3, wait_sec=10 )
+```
+
+- When it is on, a remote `cp` with `stat` present whose curl exit code is a connection-level
+  failure (6 could not resolve host, 7 could not connect, 28 timeout, 35 TLS handshake),
+  after curl's own `--retry`, is not retried by `max_retries`, and the host is remembered.
+- Every later `cp` from that host (`host[:port]`) in the same process returns the same code
+  at once, without running curl.
+- HTTP errors (22, e.g. 404) do not mark the host. Calls without `stat` behave as before.
+- `cp_skip_failed_hosts( .false. )` turns it off and forgets the hosts.
+
+Test: `test/cp_skip_hosts_test.f90` (needs network for the DNS case; about 4 minutes).
+
 ## Test Directory and Files
 
 dir_test\
